@@ -40,6 +40,7 @@ def crear_producto(request):
         ]
 
         # Insertar los objetos en lote
+        # Esta es la parte optimizada
         PrecioCliente.objects.bulk_create(precios_clientes)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

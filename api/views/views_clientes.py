@@ -83,10 +83,14 @@ def cliente_list(request):
 
 @api_view(["GET"])
 def cliente_venta_lista(request):
-    queryset = Cliente.objects.all()
+    # queryset = Cliente.objects.all()
 
-    serializer = ClienteVentaSerializer(queryset, many=True)
+    # serializer = ClienteVentaSerializer(queryset, many=True)
 
+
+    cliente = Cliente.objects.filter(NOMBRE = "MOSTRADOR")
+
+    serializer = ClienteVentaSerializer(cliente, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
