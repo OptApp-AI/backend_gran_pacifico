@@ -339,6 +339,7 @@ class DevolucionSalidaRuta(models.Model):
     STATUS = models.CharField(
         max_length=200, choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE"))
     )
+    OBSERVACIONES = models.CharField(max_length=200, blank=True)
 
     def __str__(self):
         return f"{self.SALIDA_RUTA}, {self.CATIDAD_DEVOLUCION}"
@@ -357,6 +358,13 @@ class AjusteInventario(models.Model):
     TIPO_AJUSTE = models.CharField(
         max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
     )
+
+
+    STATUS = models.CharField(
+        max_length=200, choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")), default="PENDIENTE"
+    )
+
+    OBSERVACIONES = models.CharField(max_length=200, blank=True)
 
     def save(self, *args, **kwargs):
         self.PRODUCTO_NOMBRE = self.PRODUCTO_NOMBRE.upper()
