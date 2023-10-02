@@ -41,7 +41,6 @@ def salida_ruta_detail(request, pk):
 @api_view(["PUT"])
 @transaction.atomic  # Use the atomic decorator to make sure all DB changes are made atomically
 def cancelar_salida_ruta(request, pk):
-    print("PKKK", pk)
     try:
         salida_ruta = SalidaRuta.objects.get(pk=pk)
     except SalidaRuta.DoesNotExist:
@@ -103,6 +102,7 @@ def crear_salida_ruta(request):
             producto_salida_ruta = ProductoSalidaRuta.objects.create(
                 SALIDA_RUTA=salida_ruta,
                 PRODUCTO_RUTA=producto,
+                PRODUCTO_NOMBRE=producto.NOMBRE,
                 CANTIDAD_RUTA=salida_ruta_producto["cantidadSalidaRuta"],
                 CANTIDAD_DISPONIBLE=salida_ruta_producto["cantidadSalidaRuta"],
                 STATUS="CARGADO",
@@ -116,9 +116,12 @@ def crear_salida_ruta(request):
         salida_ruta_clientes = data["salidaRutaClientes"]
 
         for salida_ruta_cliente in salida_ruta_clientes:
+            cliente = Cliente.objects.get(id=salida_ruta_cliente["clienteId"])
+
             cliente_salida_ruta = ClienteSalidaRuta.objects.create(
                 SALIDA_RUTA=salida_ruta,
-                CLIENTE_RUTA=Cliente.objects.get(id=salida_ruta_cliente["clienteId"]),
+                CLIENTE_RUTA=cliente,
+                CLIENTE_NOMBRE=cliente.NOMBRE,
                 STATUS="PENDIENTE",
             )
 

@@ -221,7 +221,7 @@ def modificar_cliente(request, pk):
 
 @api_view(["GET"])
 def ruta_list(request):
-    rutas = Ruta.objects.all()
+    rutas = Ruta.objects.all().order_by("-id")
 
     serializer = RutaSerializer(rutas, many=True)
 
