@@ -83,20 +83,21 @@ def cliente_list(request):
 
 @api_view(["GET"])
 def cliente_venta_lista(request):
-    # queryset = Cliente.objects.all()
+    queryset = Cliente.objects.all().order_by("-id")
 
-    # serializer = ClienteVentaSerializer(queryset, many=True)
+    serializer = ClienteVentaSerializer(queryset, many=True)
 
+    # cliente = Cliente.objects.filter(NOMBRE="MOSTRADOR")
 
-    cliente = Cliente.objects.filter(NOMBRE = "MOSTRADOR")
-
-    serializer = ClienteVentaSerializer(cliente, many=True)
+    # serializer = ClienteVentaSerializer(cliente, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
 def crear_cliente(request):
     data = request.data
+
+    print("DATA---", data)
 
     # 1. Crear cliente
     serializer = ClienteSerializer(data=data)
@@ -196,6 +197,12 @@ def modificar_cliente(request, pk):
             direccionCliente.CP = nueva_direccion["CP"]
 
             direccionCliente.save()
+
+            # 4. Actualizar rutas del cliente
+            nuevas_rutas_ids = data["nuevasRutasIds"]
+            if nuevas_rutas_ids:
+                ruta_dias = RutaDia.objects.filter(id__in=nuevas_rutas_ids)
+                cliente.RUTAS.set(ruta_dias)
 
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

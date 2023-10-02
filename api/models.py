@@ -8,7 +8,7 @@ class Empleado(models.Model):
     USUARIO = models.OneToOneField(
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="empleado"
     )
-    # El problema de este codigo es que para los empleados creados si subir una imagen, su imagen vive en default folder, y cuando se borranr se borra tambien la imagen de default
+    # El problema de este codigo es que para los empleados creados sin subir una imagen, su imagen vive en default folder, y cuando se borranr se borra tambien la imagen de default
     # IMAGEN = models.ImageField(
     #     default='imagenes/default/usuario_default.png', upload_to='imagenes/empleados')
 
@@ -113,6 +113,7 @@ class PrecioCliente(models.Model):
     )
 
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    # si borro el producto no tiene caso tener el nombre del producto, por eso no lo puse aqui como otro campo
 
     PRECIO = models.FloatField(validators=[MinValueValidator(0)])
 
@@ -242,9 +243,13 @@ class RutaDia(models.Model):
 class SalidaRuta(models.Model):
     ATIENDE = models.CharField(max_length=100)
     RUTA = models.ForeignKey(
-        RutaDia, on_delete=models.SET_NULL, null=True, related_name="salida_rutas"
+        RutaDia,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="salida_rutas",
     )
-    RUTA_NOMBRE = models.CharField(max_length=200)
+    RUTA_NOMBRE = models.CharField(max_length=200, blank=True)
     FECHA = models.DateTimeField(auto_now=True)
 
     # Aquí cambiar esto por un Empleado. PARA QUE QUIERES AL EMPLEADO, NECESITAS ACCEDER A ALGUN DATOS DEL EMPLEADO DESDE LA SALIDA RUTA
@@ -349,6 +354,7 @@ class AjusteInventario(models.Model):
     CAJERO = models.CharField(max_length=200)
 
     BODEGA = models.CharField(max_length=200)
+    # ADMINISTRADOR = models.CharField(max_length=200)
 
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True)
     PRODUCTO_NOMBRE = models.CharField(max_length=200)
@@ -359,9 +365,10 @@ class AjusteInventario(models.Model):
         max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
     )
 
-
     STATUS = models.CharField(
-        max_length=200, choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")), default="PENDIENTE"
+        max_length=200,
+        choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
+        default="PENDIENTE",
     )
 
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
