@@ -110,8 +110,8 @@ def crear_cliente(request):
         for precio_cliente in precios_cliente:
             nuevo_precio_cliente = PrecioCliente.objects.create(
                 CLIENTE=cliente,
-                PRODUCTO=Producto.objects.get(pk=precio_cliente["productoId"]),
-                PRECIO=precio_cliente["precioCliente"],
+                PRODUCTO=Producto.objects.get(pk=precio_cliente["precioClienteId"]),
+                PRECIO=precio_cliente["nuevoPrecioCliente"],
             )
 
             nuevo_precio_cliente.save()
