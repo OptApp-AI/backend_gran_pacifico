@@ -17,6 +17,8 @@ from .models import (
 )
 from django.contrib.auth.models import User
 
+# Empleados
+
 
 class EmpleadoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,6 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
+
         fields = ("id", "username", "name", "is_admin", "empleado")
 
     def get_name(self, obj):
@@ -46,50 +49,13 @@ class UserSerializer(serializers.ModelSerializer):
         return is_admin
 
 
-class DireccionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Direccion
-        fields = "__all__"
+# Productos
 
 
 class ProductoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Producto
         fields = "__all__"
-
-
-class PrecioClienteSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.CharField(source="PRODUCTO.NOMBRE", read_only=True)
-
-    # La cantidad es para poder hacer una venta a este cliente, sabiendo cuantos productos tengo disponibles
-
-    # Pero esto solo es necesario cuando realizo una venta, no cuando quiero ver informacion del cliente
-    # ERRROR ESTO NO DEBE SER UN INGEGER
-    producto_cantidad = serializers.FloatField(
-        source="PRODUCTO.CANTIDAD", read_only=True
-    )
-
-    # La imagen es para el momento de hacer la venta
-    # Los mismo que dije antes, esto solo es necesario al momento de hacer una venta
-    producto_imagen = serializers.ImageField(source="PRODUCTO.IMAGEN", read_only=True)
-
-    porcentage_precio = serializers.SerializerMethodField(read_only=True)
-
-    class Meta:
-        model = PrecioCliente
-        fields = "__all__"
-        # fields = ("id", "PRECIO", "producto_nombre")
-
-    def get_porcentage_precio(self, obj):
-        precio_publico = obj.PRODUCTO.PRECIO if obj.PRODUCTO.PRECIO else 1
-        precio_cliente = obj.PRECIO if obj.PRECIO else 0
-
-        if precio_publico == 0:
-            return "NO DISPONIBLE"
-
-        descuento = (1 - (precio_cliente / precio_publico)) * 100
-
-        return round(descuento, 2)
 
 
 # Ruta
@@ -113,6 +79,7 @@ class RutaDiaSerializer(serializers.ModelSerializer):
 
 
 class RutaRegistrarClienteSerializer(serializers.ModelSerializer):
+    # SerializerMethodField: It's often expensive to use SerializerMethodField. Make sure you are doing only necessary calculations inside them.
     ruta_dias = serializers.SerializerMethodField()
 
     class Meta:
@@ -121,6 +88,65 @@ class RutaRegistrarClienteSerializer(serializers.ModelSerializer):
 
     def get_ruta_dias(self, obj):
         return {ruta_dia.DIA: ruta_dia.id for ruta_dia in obj.ruta_dias.all()}
+
+
+# Deberia ser ClienteRutaDiaSerializer
+class ClientesRutaSerializer(serializers.ModelSerializer):
+    # SerializerMethodField: It's often expensive to use SerializerMethodField. Make sure you are doing only necessary calculations inside them.
+    clientes_ruta = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RutaDia
+        fields = ("clientes_ruta",)
+
+    def get_clientes_ruta(self, obj):
+        # Assuming obj is an instance of RutaDia, we can access its related Cliente instances
+        return [cliente.NOMBRE for cliente in obj.clientes_ruta.all()]
+
+
+# Clientes
+
+
+class PrecioClienteSerializer(serializers.ModelSerializer):
+    # PAra que hago esto si PrecioCliente tiene el campo PRODUCTO_NOMBRE??????????????!!!!!!!!!!!! Olvidalo, no lo tiene, pero deberia
+    producto_nombre = serializers.CharField(source="PRODUCTO.NOMBRE", read_only=True)
+
+    # La cantidad es para poder hacer una venta a este cliente, sabiendo cuantos productos tengo disponibles
+
+    # Pero esto solo es necesario cuando realizo una venta, no cuando quiero ver informacion del cliente
+    # ERRROR ESTO NO DEBE SER UN INGEGER
+    # producto_cantidad = serializers.FloatField(
+    #     source="PRODUCTO.CANTIDAD", read_only=True
+    # )
+
+    # La imagen es para el momento de hacer la venta
+    # Los mismo que dije antes, esto solo es necesario al momento de hacer una venta
+    # producto_imagen = serializers.ImageField(source="PRODUCTO.IMAGEN", read_only=True)
+
+    # SerializerMethodField: It's often expensive to use SerializerMethodField. Make sure you are doing only necessary calculations inside them.
+    porcentage_precio = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = PrecioCliente
+        # fields = "__all__"
+        fields = ("id", "PRECIO", "producto_nombre", "porcentage_precio")
+
+    def get_porcentage_precio(self, obj):
+        precio_publico = obj.PRODUCTO.PRECIO if obj.PRODUCTO.PRECIO else 1
+        precio_cliente = obj.PRECIO if obj.PRECIO else 0
+
+        if precio_publico == 0:
+            return "NO DISPONIBLE"
+
+        descuento = (1 - (precio_cliente / precio_publico)) * 100
+
+        return round(descuento, 2)
+
+
+class DireccionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Direccion
+        fields = "__all__"
 
 
 class ClienteSerializer(serializers.ModelSerializer):
@@ -136,25 +162,51 @@ class ClienteSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class ClientesRutaSerializer(serializers.ModelSerializer):
-    clientes_ruta = serializers.SerializerMethodField()
+class PrecioClienteVentaSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source="PRODUCTO.NOMBRE", read_only=True)
+
+    # La cantidad es para poder hacer una venta a este cliente, sabiendo cuantos productos tengo disponibles
+
+    # Pero esto solo es necesario cuando realizo una venta, no cuando quiero ver informacion del cliente
+    # ERRROR ESTO NO DEBE SER UN INGEGER
+    producto_cantidad = serializers.FloatField(
+        source="PRODUCTO.CANTIDAD", read_only=True
+    )
+
+    # La imagen es para el momento de hacer la venta
+    # Los mismo que dije antes, esto solo es necesario al momento de hacer una venta
+    producto_imagen = serializers.ImageField(source="PRODUCTO.IMAGEN", read_only=True)
+
+    # Esto solo se necesaita cuando quiero ver informacion del cliente, no al momento de realizar la venta
+    # porcentage_precio = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        model = RutaDia
-        fields = ("clientes_ruta",)
-
-    def get_clientes_ruta(self, obj):
-        # Assuming obj is an instance of RutaDia, we can access its related Cliente instances
-        return [cliente.NOMBRE for cliente in obj.clientes_ruta.all()]
+        model = PrecioCliente
+        # fields = "__all__"
+        fields = (
+            "id",
+            "PRECIO",
+            "producto_nombre",
+            "producto_cantidad",
+            "producto_imagen",
+            "PRECIO",
+            # This field is necessary in order to know what product we need to remove stock from
+            "PRODUCTO",  # product id
+        )
 
 
 class ClienteVentaSerializer(serializers.ModelSerializer):
-    # Debo cambia el serializador de precios, remover porcentage_precio
-    precios_cliente = PrecioClienteSerializer(many=True, read_only=True)
+    precios_cliente = PrecioClienteVentaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Cliente
+        # For clientes ventas i only need a few fields. Is this expensive?
+        # Limit Fields: If you are serializing models with many fields but only need a subset, use the only method to limit the fields that Django has to pull into Python from the DB.
+        # AS YOU CAN SEE I DON'T USE THE DIRECCION NOR THE RUTAS FIELD IN ANY PLACE, SO WHY SHOULD I USE select_related, and prefetch_related to get those fields??????
         fields = ("id", "precios_cliente", "NOMBRE")
+
+
+# Venta
 
 
 class ProductoVentaSerializer(serializers.ModelSerializer):
@@ -174,6 +226,9 @@ class VentaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Venta
         fields = "__all__"
+
+
+# Salida Ruta
 
 
 class ProductoSalidaRutaSerializer(serializers.ModelSerializer):
@@ -204,7 +259,8 @@ class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
                 {
                     "precio": serializer.data["PRECIO"],
                     "producto_nombre": serializer.data["producto_nombre"],
-                    # "productoId": serializer.data['PRODUCTO'],
+                    "productoId": serializer.data["PRODUCTO"],
+                    "producto_imagen": serializer.data["producto_imagen"],
                 }
             )
             # precios_cliente.append(serializer.data)

@@ -65,6 +65,7 @@ class Direccion(models.Model):
         super().save(*args, **kwargs)
 
 
+# Cache: If your data doesn't change often, consider using caching mechanisms to serve your requests faster.
 class Cliente(models.Model):
     TIPOS_DE_PAGO = (
         ("EFECTIVO", "EFECTIVO"),
@@ -75,17 +76,20 @@ class Cliente(models.Model):
 
     CONTACTO = models.CharField(max_length=200, null=True, blank=True)
 
+    # Is this expensive?
     DIRECCION = models.OneToOneField(
-        Direccion, on_delete=models.CASCADE, null=True, blank=True
+        Direccion, on_delete=models.CASCADE, blank=True, null=True
     )
     # El telefono SIMEPRE es un CharField!
     TELEFONO = models.CharField(max_length=200)
     CORREO = models.CharField(max_length=200, null=True, blank=True)
-    TIPO_PAGO = models.CharField(max_length=200, choices=TIPOS_DE_PAGO, null=True)
+    TIPO_PAGO = models.CharField(max_length=200, choices=TIPOS_DE_PAGO)
 
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
 
+    # Is this expensive?
     # Un cliente puede tener muchas rutas
+    # Query Optimization: Use select_related or prefetch_related if your serialized model has ForeignKey or ManyToManyField to reduce database hits.
     RUTAS = models.ManyToManyField("RutaDia", blank=True, related_name="clientes_ruta")
 
     def save(self, *args, **kwargs):
@@ -106,6 +110,7 @@ class Cliente(models.Model):
         return str(self.NOMBRE)
 
 
+# Is this expensive?
 class PrecioCliente(models.Model):
     # Debido a que si se borrar cliente se debe de borrar el correspondiente precio(s). Aqui si tiene sentido usar el foreigkey y no solo el nombre del cliente. Los mismo para producto.
     CLIENTE = models.ForeignKey(

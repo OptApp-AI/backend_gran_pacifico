@@ -1,11 +1,12 @@
 from django.dispatch import receiver
-from django.db.models.signals import pre_delete, pre_save, post_save
+from django.db.models.signals import pre_delete, pre_save, post_save, post_delete
 import os
 from django.core.files.storage import default_storage
 from django.core.files import File
 
-from .models import Producto, Empleado, Ruta, RutaDia
+from .models import Producto, Empleado, Ruta, RutaDia, Cliente, Venta
 from django.contrib.auth.models import User
+from django.core.cache import cache
 
 
 @receiver(pre_delete, sender=Producto)
@@ -99,3 +100,68 @@ def create_rutadia(sender, instance, created, **kwargs):
                 REPARTIDOR_NOMBRE=instance.REPARTIDOR_NOMBRE,
                 DIA=day,
             )
+
+
+# Delete cache when Cliente instance is modified
+@receiver(post_save, sender=Cliente)
+@receiver(post_delete, sender=Cliente)
+def invalidate_cliente_cache(sender, **kwargs):
+    # Get all the keys related to clients
+    cliente_cache_keys = cache.get("cliente_cache_keys", [])
+    for key in cliente_cache_keys:
+        print("Deleting ", key, "from cache")
+        cache.delete(key)
+    # Optionally, you can also clear the set after deleting all cache items
+    cache.set("cliente_cache_keys", [])
+
+
+# Delete cache when Producto instance is modified
+@receiver(post_save, sender=Producto)
+@receiver(post_delete, sender=Producto)
+def invalidate_cliente_cache(sender, **kwargs):
+    # Get all the keys related to clients
+    cliente_cache_keys = cache.get("cliente_cache_keys", [])
+    for key in cliente_cache_keys:
+        print("Deleting ", key, "from cache")
+        cache.delete(key)
+    # Optionally, you can also clear the set after deleting all cache items
+    cache.set("cliente_cache_keys", [])
+
+
+# Delete cache when RutaDia instance is modified
+@receiver(post_save, sender=RutaDia)
+@receiver(post_delete, sender=RutaDia)
+def invalidate_cliente_cache(sender, **kwargs):
+    # Get all the keys related to clients
+    cliente_cache_keys = cache.get("cliente_cache_keys", [])
+    for key in cliente_cache_keys:
+        print("Deleting ", key, "from cache")
+        cache.delete(key)
+    # Optionally, you can also clear the set after deleting all cache items
+    cache.set("cliente_cache_keys", [])
+
+
+# Delete cache venta reporte when Venta instance is modified
+@receiver(post_save, sender=Venta)  # When a venta is created
+# @receiver(post_delete, sender=Venta) Venta is never deleted
+def invalidate_cliente_cache(sender, **kwargs):
+    # Get all the keys related to clients
+    venta_cache_keys = cache.get("venta_cache_keys", [])
+    for key in venta_cache_keys:
+        print("Deleting ", key, "from cache")
+        cache.delete(key)
+    # Optionally, you can also clear the set after deleting all cache items
+    cache.set("venta_cache_keys", [])
+
+
+# Delete cache venta reporte when Venta instance is modified
+@receiver(post_save, sender=Venta)  # When a venta is created
+# @receiver(post_delete, sender=Venta) Venta is never deleted
+def invalidate_cliente_cache(sender, **kwargs):
+    # Get all the keys related to clients
+    venta_reporte_cache_keys = cache.get("venta_reporte_cache_keys", [])
+    for key in venta_reporte_cache_keys:
+        print("Deleting ", key, "from cache")
+        cache.delete(key)
+    # Optionally, you can also clear the set after deleting all cache items
+    cache.set("venta_reporte_cache_keys", [])

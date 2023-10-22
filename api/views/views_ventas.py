@@ -15,72 +15,50 @@ from django.utils.dateparse import parse_date
 from django.db.models import Case, When, Value, IntegerField
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import timedelta
-
+from .utilis.ventas import filter_by_date
+from django.db.models import Q
+from django.core.cache import cache
 
 # Vistas para ventas
+
+
 @api_view(["GET"])
 def venta_list(request):
-    # 1. Filtrar usando parametro filtrarpor
+    # Generate a unique cache key based on request parameters
+    # any change in query parameters will produce a different URL-encoded string
+    cache_key = f"venta_list_{request.GET.urlencode()}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data, status=status.HTTP_200_OK)
+
     filtrar_por = request.GET.get("filtrarpor", "")
     buscar = request.GET.get("buscar", "")
-
-    # No es posible que exista buscar y no exista filtrar_por
-    # pero puede existir filtrar_por = "clientes" y buscar ser ''
-
-    if filtrar_por == "cliente" and buscar:
-        queryset = Venta.objects.filter(NOMBRE_CLIENTE__icontains=buscar)
-    elif filtrar_por == "tipoventa":
-        queryset = Venta.objects.filter(TIPO_VENTA__icontains=buscar)
-    elif filtrar_por == "tipopago":
-        queryset = Venta.objects.filter(TIPO_PAGO__icontains=buscar)
-    elif filtrar_por == "status":
-        queryset = Venta.objects.filter(STATUS__icontains=buscar)
-
-    elif filtrar_por == "vendedor":
-        queryset = Venta.objects.filter(VENDEDOR__icontains=buscar)
-    else:
-        queryset = Venta.objects.all()
-
-    # 2. Filtrar por fecha
     fechainicio = request.GET.get("fechainicio", "")
     fechafinal = request.GET.get("fechafinal", "")
-    if fechainicio:
-        fechainicio = parse_date(fechainicio)
-    if fechafinal:
-        # El timedelta es para que el filtro incluya el dia actual cuando fechFinal es el dia actual
-        fechafinal = parse_date(fechafinal) + timedelta(days=1)
-    if fechainicio and fechafinal:
-        queryset = queryset.filter(FECHA__date__range=[fechainicio, fechafinal])
-    elif fechainicio:
-        queryset = queryset.filter(FECHA__date__gte=fechainicio)
-    elif fechafinal:
-        queryset = queryset.filter(FECHA__date__lte=fechafinal)
+    ordenar_por = request.GET.get("ordenarpor", "")
+    page = request.GET.get("page", "")
 
-    # 3. Ordenar usando ordenarpor
-    ordenar_por = request.GET.get("ordernarpor", "")
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
-    # Primero ordenamos de tal forma que las ventas
-    # con cliente estan al inicio
-    # Luego, como segundo criterio ornamos con recpecto al nombre del cliente
-    if ordenar_por == "cliente":
-        queryset = queryset.order_by("NOMBRE_CLIENTE")
+    queryset = (
+        Venta.objects.select_related("CLIENTE")
+        .prefetch_related("productos_venta")
+        .filter(filters)
+    )
 
-    elif ordenar_por == "fecha_recientes":
-        queryset = queryset.order_by("-FECHA")
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
-    elif ordenar_por == "fecha_antiguos":
-        queryset = queryset.order_by("FECHA")
-
-    elif ordenar_por == "vendedor":
-        queryset = queryset.order_by("VENDEDOR")
-    else:
-        queryset = queryset.order_by("-id")
-
-    # 4. Paginacion
-    page = request.GET.get("page")
+    ordering_dict = {
+        "cliente": "NOMBRE_CLIENTE",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+        "vendedor": "VENDEDOR",
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
 
     paginator = Paginator(queryset, 10)
-
     try:
         ventas = paginator.page(page)
     except PageNotAnInteger:
@@ -92,67 +70,74 @@ def venta_list(request):
 
     serializer = VentaSerializer(ventas, many=True)
 
-    return Response(
-        {"ventas": serializer.data, "page": page, "pages": paginator.num_pages},
-        status=status.HTTP_200_OK,
-    )
+    response_data = {
+        "ventas": serializer.data,
+        "page": page,
+        "pages": paginator.num_pages,
+    }
+
+    # Cache the result
+    cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
+
+    # Keep track of all cache keys related to venta
+    cache_keys = cache.get("venta_cache_keys", [])
+    cache_keys.append(cache_key)
+    cache.set("venta_cache_keys", cache_keys)
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 # Vistas para ventas
 @api_view(["GET"])
 def venta_reporte_list(request):
-    # 1. Filtrar usando parametro filtrarpor
+    # Generate cache key
+    cache_key = f"venta_reporte_list_{request.GET.urlencode()}"
+
+    # Check for cached data
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data, status=status.HTTP_200_OK)
+
+    # Existing logic for filters
     filtrar_por = request.GET.get("filtrarpor", "")
     buscar = request.GET.get("buscar", "")
-
-    if filtrar_por == "cliente" and buscar:
-        queryset = Venta.objects.filter(NOMBRE_CLIENTE__icontains=buscar)
-    elif filtrar_por == "tipoventa":
-        queryset = Venta.objects.filter(TIPO_VENTA__icontains=buscar)
-    elif filtrar_por == "tipopago":
-        queryset = Venta.objects.filter(TIPO_PAGO__icontains=buscar)
-    elif filtrar_por == "status":
-        queryset = Venta.objects.filter(STATUS__icontains=buscar)
-
-    elif filtrar_por == "vendedor":
-        queryset = Venta.objects.filter(VENDEDOR__icontains=buscar)
-    else:
-        queryset = Venta.objects.all()
-
-    # 2. Filtrar por fecha
     fechainicio = request.GET.get("fechainicio", "")
     fechafinal = request.GET.get("fechafinal", "")
-    if fechainicio:
-        fechainicio = parse_date(fechainicio)
-    if fechafinal:
-        fechafinal = parse_date(fechafinal) + timedelta(days=1)
-    if fechainicio and fechafinal:
-        queryset = queryset.filter(FECHA__date__range=[fechainicio, fechafinal])
-    elif fechainicio:
-        queryset = queryset.filter(FECHA__date__gte=fechainicio)
-    elif fechafinal:
-        queryset = queryset.filter(FECHA__date__lte=fechafinal)
+    ordenar_por = request.GET.get("ordenarpor", "")
 
-    # 3. Ordenar usando ordenarpor
-    ordenar_por = request.GET.get("ordernarpor", "")
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por}__icontains": buscar})
 
-    if ordenar_por == "cliente":
-        queryset = queryset.order_by("NOMBRE_CLIENTE")
+    queryset = (
+        Venta.objects.select_related("CLIENTE")
+        .prefetch_related("productos_venta")
+        .filter(filters)
+    )
 
-    elif ordenar_por == "fecha_recientes":
-        queryset = queryset.order_by("-FECHA")
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
-    elif ordenar_por == "fecha_antiguos":
-        queryset = queryset.order_by("FECHA")
+    ordering_dict = {
+        "cliente": "NOMBRE_CLIENTE",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+        "vendedor": "VENDEDOR",
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
 
-    elif ordenar_por == "vendedor":
-        queryset = queryset.order_by("VENDEDOR")
-    else:
-        queryset = queryset.order_by("-id")
-
+    # Serialize the queryset
     serializer = VentaSerializer(queryset, many=True)
+    response_data = serializer.data
 
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # Cache the result
+    cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
+
+    # Keep track of all cache keys related to venta_reporte
+    cache_keys = cache.get("venta_reporte_cache_keys", [])
+    cache_keys.append(cache_key)
+    cache.set("venta_reporte_cache_keys", cache_keys)
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -165,6 +150,8 @@ def crear_venta(request):
         venta = serializer.save()
 
         productos_venta = data["productosVenta"]
+
+        print("PRODUCTOS VENTA:-------", productos_venta)
 
         for producto_venta in productos_venta:
             producto = Producto.objects.get(pk=producto_venta["productoId"])

@@ -15,7 +15,11 @@ from api.signals import create_empleado, save_empleado
 
 @api_view(["GET"])
 def usuario_list(request):
-    queryset = User.objects.all().order_by("-id")
+    nombreUsuario = request.GET.get("nombreUsuario", "")
+    if nombreUsuario:
+        queryset = User.objects.filter(username=nombreUsuario)
+    else:
+        queryset = User.objects.all().order_by("-id")
 
     # Usas el mismo serializador con tu cuenta que con el resto de usuarios! En lugar de esto cambia el serializador para tu cuenta. Use UserSerializerWithToken. De esta manera podras obtener el token de tu cuenta en el frontend.
     serializer = UserSerializer(queryset, many=True)
@@ -28,11 +32,11 @@ def crear_user(request):
     data = request.data
 
     # Esta validacion es hecha en el frontend tambien.
-    if data["password1"] != data["password2"]:
-        return Response(
-            {"Detalles": "Las constraseñas deben ser iguales"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    # if data["password1"] != data["password2"]:
+    #     return Response(
+    #         {"Detalles": "Las constraseñas deben ser iguales"},
+    #         status=status.HTTP_400_BAD_REQUEST,
+    #     )
 
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario
     post_save.disconnect(create_empleado, sender=User)

@@ -15,10 +15,13 @@ urlpatterns = [
     path("rutas/<str:pk>/", views_clientes.ruta_detail),
     path("rutas/<str:pk>/dias/", views_clientes.ruta_dias_list),
     path("ruta-dias/<str:pk>/", views_clientes.ruta_dias_detail),
+    # Los clientes de la ruta dia
     path("ruta-dias/<str:pk>/clientes/", views_clientes.clientes_ruta),
     path("modificar-ruta/<str:pk>/", views_clientes.modificar_ruta),
     path("modificar-ruta-dia/<str:pk>/", views_clientes.modificar_ruta_dia),
+    # Estas ruta contiene el nombre de la ruta y una array con los ids de las rutas dias correspondiente. Se usan para crear o editar un cliente
     path("rutas-registrar-cliente/", views_clientes.rutas_registrar_cliente),
+    #
     path("clientes-salida-ruta/", views_clientes.clientes_salida_ruta_list),
     path("rutas-salida-ruta/", views_clientes.ruta_salida_ruta_list),
 ]
