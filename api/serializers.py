@@ -121,7 +121,7 @@ class PrecioClienteSerializer(serializers.ModelSerializer):
 
     # La imagen es para el momento de hacer la venta
     # Los mismo que dije antes, esto solo es necesario al momento de hacer una venta
-    # producto_imagen = serializers.ImageField(source="PRODUCTO.IMAGEN", read_only=True)
+    producto_imagen = serializers.ImageField(source="PRODUCTO.IMAGEN", read_only=True)
 
     # SerializerMethodField: It's often expensive to use SerializerMethodField. Make sure you are doing only necessary calculations inside them.
     porcentage_precio = serializers.SerializerMethodField(read_only=True)
@@ -129,7 +129,14 @@ class PrecioClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrecioCliente
         # fields = "__all__"
-        fields = ("id", "PRECIO", "producto_nombre", "porcentage_precio")
+        fields = (
+            "id",
+            "PRECIO",
+            "producto_nombre",
+            "porcentage_precio",
+            "PRODUCTO",
+            "producto_imagen",
+        )
 
     def get_porcentage_precio(self, obj):
         precio_publico = obj.PRODUCTO.PRECIO if obj.PRODUCTO.PRECIO else 1
