@@ -26,10 +26,10 @@ from django.core.cache import cache
 def venta_list(request):
     # Generate a unique cache key based on request parameters
     # any change in query parameters will produce a different URL-encoded string
-    cache_key = f"venta_list_{request.GET.urlencode()}"
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return Response(cached_data, status=status.HTTP_200_OK)
+    # cache_key = f"venta_list_{request.GET.urlencode()}"
+    # cached_data = cache.get(cache_key)
+    # if cached_data:
+    #     return Response(cached_data, status=status.HTTP_200_OK)
 
     filtrar_por = request.GET.get("filtrarpor", "")
     buscar = request.GET.get("buscar", "")
@@ -77,12 +77,12 @@ def venta_list(request):
     }
 
     # Cache the result
-    cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
+    # cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
 
     # Keep track of all cache keys related to venta
-    cache_keys = cache.get("venta_cache_keys", [])
-    cache_keys.append(cache_key)
-    cache.set("venta_cache_keys", cache_keys)
+    # cache_keys = cache.get("venta_cache_keys", [])
+    # cache_keys.append(cache_key)
+    # cache.set("venta_cache_keys", cache_keys)
 
     return Response(response_data, status=status.HTTP_200_OK)
 
@@ -91,12 +91,12 @@ def venta_list(request):
 @api_view(["GET"])
 def venta_reporte_list(request):
     # Generate cache key
-    cache_key = f"venta_reporte_list_{request.GET.urlencode()}"
+    # cache_key = f"venta_reporte_list_{request.GET.urlencode()}"
 
     # Check for cached data
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return Response(cached_data, status=status.HTTP_200_OK)
+    # cached_data = cache.get(cache_key)
+    # if cached_data:
+    #     return Response(cached_data, status=status.HTTP_200_OK)
 
     # Existing logic for filters
     filtrar_por = request.GET.get("filtrarpor", "")
@@ -130,12 +130,12 @@ def venta_reporte_list(request):
     response_data = serializer.data
 
     # Cache the result
-    cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
+    # cache.set(cache_key, response_data, 60 * 15)  # Cache for 15 minutes
 
-    # Keep track of all cache keys related to venta_reporte
-    cache_keys = cache.get("venta_reporte_cache_keys", [])
-    cache_keys.append(cache_key)
-    cache.set("venta_reporte_cache_keys", cache_keys)
+    # # Keep track of all cache keys related to venta_reporte
+    # cache_keys = cache.get("venta_reporte_cache_keys", [])
+    # cache_keys.append(cache_key)
+    # cache.set("venta_reporte_cache_keys", cache_keys)
 
     return Response(response_data, status=status.HTTP_200_OK)
 

@@ -35,12 +35,12 @@ from django.db import transaction
 def cliente_list(request):
     # Generate a unique cache key based on request parameters
     # any change in query parameters will produce a different URL-encoded string
-    cache_key = f"cliente_list_{request.GET.urlencode()}"
+    # cache_key = f"cliente_list_{request.GET.urlencode()}"
 
-    cached_data = cache.get(cache_key)
+    # cached_data = cache.get(cache_key)
 
-    if cached_data:
-        return Response(cached_data, status=status.HTTP_200_OK)
+    # if cached_data:
+    #     return Response(cached_data, status=status.HTTP_200_OK)
 
     # Construct a Q object for filtering
     q_objects = Q()
@@ -98,16 +98,16 @@ def cliente_list(request):
     }
 
     # Cache the result
-    cache.set(
-        cache_key,
-        response_data,
-        60 * 15,
-    )  # Cache for 15 minutes
+    # cache.set(
+    #     cache_key,
+    #     response_data,
+    #     60 * 15,
+    # )  # Cache for 15 minutes
 
     # A list of all the cache keys related to cliente is maintained. This list itself is stored in the cache. When new data is cached, its key is added to this list.
-    cache_keys = cache.get("cliente_cache_keys", [])
-    cache_keys.append(cache_key)
-    cache.set("cliente_cache_keys", cache_keys)
+    # cache_keys = cache.get("cliente_cache_keys", [])
+    # cache_keys.append(cache_key)
+    # cache.set("cliente_cache_keys", cache_keys)
 
     return Response(
         {"clientes": serializer.data, "page": page, "pages": paginator.num_pages},
@@ -125,12 +125,12 @@ def cliente_list(request):
 @api_view(["GET"])
 def cliente_venta_lista(request):
     nombre = request.GET.get("nombre", "")
-    cache_key = f"cliente_venta_lista:{nombre}"
+    # cache_key = f"cliente_venta_lista:{nombre}"
 
     # Try to fetch from cache first
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return Response(cached_data, status=status.HTTP_200_OK)
+    # cached_data = cache.get(cache_key)
+    # if cached_data:
+    #     return Response(cached_data, status=status.HTTP_200_OK)
 
     if nombre:
         # Use .only() to limit the fields fetched from the Cliente model.
@@ -159,12 +159,12 @@ def cliente_venta_lista(request):
     serialized_data = ClienteVentaSerializer(queryset, many=True).data
 
     # Cache for 5 minutes
-    cache.set(cache_key, serialized_data, 60 * 15)
+    # cache.set(cache_key, serialized_data, 60 * 15)
 
     # A list of all the cache keys related to cliente is maintained. This list itself is stored in the cache. When new data is cached, its key is added to this list.
-    cache_keys = cache.get("cliente_cache_keys", [])
-    cache_keys.append(cache_key)
-    cache.set("cliente_cache_keys", cache_keys)
+    # cache_keys = cache.get("cliente_cache_keys", [])
+    # cache_keys.append(cache_key)
+    # cache.set("cliente_cache_keys", cache_keys)
 
     return Response(serialized_data, status=status.HTTP_200_OK)
 

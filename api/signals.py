@@ -109,7 +109,11 @@ def invalidate_cliente_cache(sender, **kwargs):
     # Get all the keys related to clients
     cliente_cache_keys = cache.get("cliente_cache_keys", [])
     for key in cliente_cache_keys:
-        print("Deleting ", key, "from cache")
+        print(
+            "Deleting ---------------------------------------------------------------------------------",
+            key,
+            "from cache",
+        )
         cache.delete(key)
     # Optionally, you can also clear the set after deleting all cache items
     cache.set("cliente_cache_keys", [])
