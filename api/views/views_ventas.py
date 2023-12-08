@@ -176,6 +176,11 @@ def crear_venta(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(["POST"])
+def creat_venta_salida_ruta(request):
+
+    pass
+
 @api_view(["GET"])
 def venta_detail(request, pk):
     try:

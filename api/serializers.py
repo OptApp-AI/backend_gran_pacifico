@@ -1,19 +1,20 @@
 from rest_framework import serializers
 from .models import (
-    Producto,
-    Cliente,
-    PrecioCliente,
-    ProductoVenta,
-    Venta,
-    Direccion,
     Empleado,
+    # Ventas
+    Direccion,
+    Cliente,
+    Producto,
+    AjusteInventario,
+    PrecioCliente,
+    Venta,
+    ProductoVenta,
     # Ruta
     Ruta,
     RutaDia,
     ProductoSalidaRuta,
     ClienteSalidaRuta,
     SalidaRuta,
-    AjusteInventario,
 )
 from django.contrib.auth.models import User
 
@@ -30,7 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField(read_only=True)
     is_admin = serializers.SerializerMethodField(read_only=True)
 
-    # Algo mas sencillo aqui seria crear el campo imagen  en el serializerusando empleado para ello, de esta manera, accedes a image desde usuario y no necesitar usar empleado en el frontend
+    # Algo mas sencillo aqui seria crear el campo imagen  en el serializer usando empleado para ello, de esta manera, accedes a image desde usuario y no necesitas usar empleado en el frontend
     empleado = EmpleadoSerializer()
 
     class Meta:

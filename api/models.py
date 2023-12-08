@@ -18,6 +18,9 @@ class Empleado(models.Model):
         return f"Empleado con usuario: {self.USUARIO.username}"
 
 
+# Mostrador 7
+
+
 # Create your models here.
 class Producto(models.Model):
     NOMBRE = models.CharField(max_length=100)
@@ -39,6 +42,41 @@ class Producto(models.Model):
         self.NOMBRE = self.NOMBRE.upper()
 
         super().save(*args, **kwargs)
+
+
+class AjusteInventario(models.Model):
+    CAJERO = models.CharField(max_length=200)
+
+    BODEGA = models.CharField(max_length=200)
+    # ADMINISTRADOR = models.CharField(max_length=200)
+
+    PRODUCTO = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True)
+    # The reason why i add the product name and not just the foreign key relationship is because if i delete the product, i want to have a way to know what product was used for this ajuste inventario row
+    PRODUCTO_NOMBRE = models.CharField(max_length=200)
+
+    CANTIDAD = models.FloatField(validators=[MinValueValidator(0)])
+
+    TIPO_AJUSTE = models.CharField(
+        max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
+    )
+
+    STATUS = models.CharField(
+        max_length=200,
+        choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
+        default="PENDIENTE",
+    )
+
+    OBSERVACIONES = models.CharField(max_length=200, blank=True)
+
+    def save(self, *args, **kwargs):
+        self.PRODUCTO_NOMBRE = self.PRODUCTO_NOMBRE.upper()
+        self.CAJERO = self.CAJERO.upper()
+        self.BODEGA = self.BODEGA.upper()
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.PRODUCTO_NOMBRE}, {self.TIPO_AJUSTE}, {self.CANTIDAD}"
 
 
 class Direccion(models.Model):
@@ -120,7 +158,8 @@ class PrecioCliente(models.Model):
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.CASCADE)
     # si borro el producto no tiene caso tener el nombre del producto, por eso no lo puse aqui como otro campo
 
-    PRECIO = models.FloatField(validators=[MinValueValidator(0)])
+    PRECIO = models.FloatField(validators=[MinValueValidator(0)])  # REMOVE THIS FIELD
+    # DESCUENTO = models.FloatField(validators=[MinValueValidator(0), MaxValueValidator(1)]) # ADD THIS FIELD
 
     # En este metodo nunca debes de poner algo que se pueda volver None. Por ejemplo, en este caso estamos seguros de que CLIENTE y PRODUCTO siempre seran valores distintos de None
     def __str__(self):
@@ -134,13 +173,14 @@ class Venta(models.Model):
     # no necesito el cliente entero para registrar una venta, solo necesito su nombre
     # Ya lo puedo borrar (Lo voy a dejar por ahora, pero no lo necesito)
     CLIENTE = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True)
-
+    # la razon por la que registro el nombre del cliente ademas del foreign key es porque en caso de borrar el cliente quiero saber a que cliente se le realizo la venta, incluso si ese cliente no existe en la base de datos
     NOMBRE_CLIENTE = models.CharField(max_length=200)
 
     FECHA = models.DateTimeField(auto_now=True)
 
     MONTO = models.FloatField(validators=[MinValueValidator(0)])
 
+    # Esto de tipo de pago sirve principalmente para distinguir entre ventas a mostrador y las ventas en salida ruta
     TIPO_VENTA = models.CharField(
         max_length=100, choices=(("MOSTRADOR", "MOSTRADOR"), ("RUTA", "RUTA"))
     )
@@ -189,13 +229,14 @@ class ProductoVenta(models.Model):
         return f"{self.VENTA}, {self.NOMBRE_PRODUCTO}"
 
 
-# RUTA
+# RUTA 6
 
 
 class Ruta(models.Model):
     NOMBRE = models.CharField(max_length=100, unique=True)
 
     REPARTIDOR = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True)
+    # the reason why we add the delivery man name and not just the foreign key is because in case the emplado is deleted we need a way to know who was the delivery man for this ruta
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
 
     def save(self, *args, **kwargs):
@@ -258,7 +299,7 @@ class SalidaRuta(models.Model):
     FECHA = models.DateTimeField(auto_now=True)
 
     # Aquí cambiar esto por un Empleado. PARA QUE QUIERES AL EMPLEADO, NECESITAS ACCEDER A ALGUN DATOS DEL EMPLEADO DESDE LA SALIDA RUTA
-    # CUANDO EL REPARTIDOR INICIE SESSION, COMO VA A HACERDER A LA SalidRuta. DEBERIA DE TENER SOLO UNA SalidaRuta con STATUS de pendiente o progreso, y es a traves de este campo que el va a acceder.
+    # CUANDO EL REPARTIDOR INICIE SESSION, COMO VA A ACCEDER A LA SalidRuta. DEBERIA DE TENER SOLO UNA SalidaRuta con STATUS de pendiente o progreso, y es a traves de este campo que el va a acceder.
     REPARTIDOR = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True)
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
     # Si hubo una devolucion en esta salida a ruta el administrador va a hacer la devolucion aqui
@@ -266,7 +307,7 @@ class SalidaRuta(models.Model):
     STATUS = models.CharField(
         max_length=100,
         choices=(
-            # Sale como pendiente mientras no venta todos los productos. Si al final del corte hay productos y se requiere una devolucion. Es necesario hacer una devolucion para cambiar el status a realizado. O bien, se pueden cancelar.
+            # Sale como pendiente mientras no venda todos los productos. Si al final del corte hay productos y se requiere una devolucion. Es necesario hacer una devolucion para cambiar el status a realizado. O bien, se pueden cancelar.
             ("PENDIENTE", "PENDIENTE"),
             ("PROGRESO", "PROGRESO"),
             # Cambia a realizado cuando vendio todos los productos
@@ -279,8 +320,8 @@ class SalidaRuta(models.Model):
     )
 
     def __str__(self):
-        # DESPUES HAY QUE CAMBIAR ESTO PORQUE SI SE BORRA EL ATIENDE O REPARTIDOR VAN A EXISTIR PROBLEMAS. nO EN REALIDAD PORQUE ATIENDE ES UN CHARFIELD, usar empleado_nombre EN LUGAR DE EMPLEADO, para uqe no haya problemas
-        return f"{self.ATIENDE}, {self.REPARTIDOR}"
+        # DESPUES HAY QUE CAMBIAR ESTO PORQUE SI SE BORRA EL ATIENDE O REPARTIDOR VAN A EXISTIR PROBLEMAS. NO EN REALIDAD PORQUE ATIENDE ES UN CHARFIELD, usar empleado_nombre EN LUGAR DE EMPLEADO, para que no haya problemas
+        return f"{self.ATIENDE}, {self.REPARTIDOR_NOMBRE}"
 
 
 # El status cambia a vendido hasta que todo el producto se vendio
@@ -353,37 +394,3 @@ class DevolucionSalidaRuta(models.Model):
 
     def __str__(self):
         return f"{self.SALIDA_RUTA}, {self.CATIDAD_DEVOLUCION}"
-
-
-class AjusteInventario(models.Model):
-    CAJERO = models.CharField(max_length=200)
-
-    BODEGA = models.CharField(max_length=200)
-    # ADMINISTRADOR = models.CharField(max_length=200)
-
-    PRODUCTO = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True)
-    PRODUCTO_NOMBRE = models.CharField(max_length=200)
-
-    CANTIDAD = models.FloatField(validators=[MinValueValidator(0)])
-
-    TIPO_AJUSTE = models.CharField(
-        max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
-    )
-
-    STATUS = models.CharField(
-        max_length=200,
-        choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
-        default="PENDIENTE",
-    )
-
-    OBSERVACIONES = models.CharField(max_length=200, blank=True)
-
-    def save(self, *args, **kwargs):
-        self.PRODUCTO_NOMBRE = self.PRODUCTO_NOMBRE.upper()
-        self.CAJERO = self.CAJERO.upper()
-        self.BODEGA = self.BODEGA.upper()
-
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.PRODUCTO_NOMBRE}, {self.TIPO_AJUSTE}, {self.CANTIDAD}"
