@@ -33,7 +33,7 @@ def usuario_list(request):
 
 # Si te fijas, necesitas crear el usuario sin usar el UserSerializer debido a que estas usando el modelo User de Django y eso limita la manera en que defines los campos. Por eso es mejor crear tu propio modelo User
 @api_view(["POST"])
-@transaction
+@transaction.atomic
 def crear_user(request):
     data = request.data
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario

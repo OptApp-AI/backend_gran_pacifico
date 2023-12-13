@@ -152,7 +152,7 @@ def venta_reporte_list(request):
 
 
 @api_view(["POST"])
-@transaction
+@transaction.atomic
 def crear_venta(request):
     data = request.data
     # Aqui la data va a cambiar para ventas en salida ruta, en especifico tipo_venta es ruta
@@ -211,6 +211,7 @@ def venta_detail(request, pk):
 
 
 @api_view(["PUT", "DELETE"])
+@transaction.atomic
 def modificar_venta(request, pk):
     try:
         productos_venta_prefetch = Prefetch(
