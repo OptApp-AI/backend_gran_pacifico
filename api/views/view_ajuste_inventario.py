@@ -1,13 +1,18 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.db import transaction
+
 from api.models import AjusteInventario, Producto
 from api.serializers import AjusteInventarioSerializer
 
 
+# I need to add pagination and filtering to this view
 @api_view(["GET"])
 def ajuste_inventario_list(request):
-    ajuste_inventarios = AjusteInventario.objects.all().order_by("-id")
+    ajuste_inventarios = (
+        AjusteInventario.objects.select_related("PRODUCTO").all().order_by("-id")
+    )
 
     serializer = AjusteInventarioSerializer(ajuste_inventarios, many=True)
 
@@ -15,6 +20,7 @@ def ajuste_inventario_list(request):
 
 
 @api_view(["POST"])
+@transaction.atomic  # Ensures atomic
 def crear_ajuste_inventario(request):
     data = request.data
 

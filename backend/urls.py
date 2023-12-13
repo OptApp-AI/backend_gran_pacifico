@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # This is only for updating account, Account info is obtained in the login
     path("api/", include("api.urls.urls_cuenta")),
     path("api/", include("api.urls.urls_productos")),
     path("api/", include("api.urls.urls_clientes")),

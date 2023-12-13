@@ -37,7 +37,7 @@ def delete_empleado_image(sender, instance, **kwargs):
 
 
 @receiver(pre_save, sender=Empleado)
-def delete_previous_producto_image(sender, instance, **kwargs):
+def delete_previous_empleado_image(sender, instance, **kwargs):
     # Obtener el objeto Empleado antes de la actualización
     if instance.pk:
         previous_empleado = Empleado.objects.get(pk=instance.pk)
@@ -102,57 +102,31 @@ def create_rutadia(sender, instance, created, **kwargs):
             )
 
 
-# Delete cache when Cliente instance is modified
-@receiver(post_save, sender=Cliente)
-@receiver(post_delete, sender=Cliente)
+# Generalized invalidate cache function
 def invalidate_cliente_cache(sender, **kwargs):
     # Get all the keys related to clients
     cliente_cache_keys = cache.get("cliente_cache_keys", [])
     for key in cliente_cache_keys:
-        print(
-            "Deleting ---------------------------------------------------------------------------------",
-            key,
-            "from cache",
-        )
         cache.delete(key)
-    # Optionally, you can also clear the set after deleting all cache items
+    # Clear the set after deleting all cache items
     cache.set("cliente_cache_keys", [])
 
 
-# Delete cache when Producto instance is modified
-@receiver(post_save, sender=Producto)
-@receiver(post_delete, sender=Producto)
-def invalidate_cliente_cache(sender, **kwargs):
-    # Get all the keys related to clients
-    cliente_cache_keys = cache.get("cliente_cache_keys", [])
-    for key in cliente_cache_keys:
-        print("Deleting ", key, "from cache")
-        cache.delete(key)
-    # Optionally, you can also clear the set after deleting all cache items
-    cache.set("cliente_cache_keys", [])
-
-
-# Delete cache when RutaDia instance is modified
-@receiver(post_save, sender=RutaDia)
-@receiver(post_delete, sender=RutaDia)
-def invalidate_cliente_cache(sender, **kwargs):
-    # Get all the keys related to clients
-    cliente_cache_keys = cache.get("cliente_cache_keys", [])
-    for key in cliente_cache_keys:
-        print("Deleting ", key, "from cache")
-        cache.delete(key)
-    # Optionally, you can also clear the set after deleting all cache items
-    cache.set("cliente_cache_keys", [])
+# Connect the invalidate_cache function to post_save and post_delete signals of multiple models
+# Product: I need to update clients's prices (e.g., the product name )
+# RutaDia: I need to update RutaDia
+for model in [Cliente, Producto, RutaDia]:
+    post_save.connect(invalidate_cliente_cache, sender=model)
+    post_delete.connect(invalidate_cliente_cache, sender=model)
 
 
 # Delete cache venta reporte when Venta instance is modified
 @receiver(post_save, sender=Venta)  # When a venta is created
 # @receiver(post_delete, sender=Venta) Venta is never deleted
-def invalidate_cliente_cache(sender, **kwargs):
+def invalidate_venta_cache(sender, **kwargs):
     # Get all the keys related to clients
     venta_cache_keys = cache.get("venta_cache_keys", [])
     for key in venta_cache_keys:
-        print("Deleting ", key, "from cache")
         cache.delete(key)
     # Optionally, you can also clear the set after deleting all cache items
     cache.set("venta_cache_keys", [])
@@ -161,11 +135,10 @@ def invalidate_cliente_cache(sender, **kwargs):
 # Delete cache venta reporte when Venta instance is modified
 @receiver(post_save, sender=Venta)  # When a venta is created
 # @receiver(post_delete, sender=Venta) Venta is never deleted
-def invalidate_cliente_cache(sender, **kwargs):
+def invalidate_venta_reporte_cache(sender, **kwargs):
     # Get all the keys related to clients
     venta_reporte_cache_keys = cache.get("venta_reporte_cache_keys", [])
     for key in venta_reporte_cache_keys:
-        print("Deleting ", key, "from cache")
         cache.delete(key)
     # Optionally, you can also clear the set after deleting all cache items
     cache.set("venta_reporte_cache_keys", [])

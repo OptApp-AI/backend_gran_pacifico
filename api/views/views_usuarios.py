@@ -11,33 +11,31 @@ from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from django.db.models.signals import post_save
 from api.signals import create_empleado, save_empleado
+from django.db import transaction
 
 
 @api_view(["GET"])
 def usuario_list(request):
+    # I imagine that i use this for checking username availability?
     nombreUsuario = request.GET.get("nombreUsuario", "")
     if nombreUsuario:
-        queryset = User.objects.filter(username=nombreUsuario)
+        queryset = User.objects.prefetch_related("empleado").filter(
+            username=nombreUsuario
+        )
     else:
-        queryset = User.objects.all().order_by("-id")
+        queryset = User.objects.prefetch_related("empleado").all().order_by("-id")
 
-    # Usas el mismo serializador con tu cuenta que con el resto de usuarios! En lugar de esto cambia el serializador para tu cuenta. Use UserSerializerWithToken. De esta manera podras obtener el token de tu cuenta en el frontend.
+    # This serializer returns basic information about the users but not their token. The only way to obtain the token is through the login endpoint
     serializer = UserSerializer(queryset, many=True)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# Si te fijas, necesitas crear el usuario sin usar el UserSerializer debido a que estas usando el modelo User de Django y eso limita la manera en que defines los campos. Por eso es mejor crear tu propio modelo User
 @api_view(["POST"])
+@transaction
 def crear_user(request):
     data = request.data
-
-    # Esta validacion es hecha en el frontend tambien.
-    # if data["password1"] != data["password2"]:
-    #     return Response(
-    #         {"Detalles": "Las constraseñas deben ser iguales"},
-    #         status=status.HTTP_400_BAD_REQUEST,
-    #     )
-
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario
     post_save.disconnect(create_empleado, sender=User)
     post_save.disconnect(save_empleado, sender=User)
@@ -46,6 +44,7 @@ def crear_user(request):
             username=data["username"],
             password=make_password(data["password1"]),
             first_name=data["name"].upper(),
+            # The reason why we need to write this is because the content-type in the request is multipart/form-data which transforms all fields into files and strings
             is_staff=data["is_admin"] == "true",
         )
     except:
@@ -54,7 +53,7 @@ def crear_user(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     # Cuando el usuario se crea desde el frontend esto permit crear al empleado y guardar la imagen
-    # La funcion create_emplado in signal.py es usada para crear el empleado cuando el usuario es creado del panel de django
+    # Las funciones create_emplado y save_emplado en signal.py son usadas para crear y guardar el empleado de forma automatica cuando el usuario es creado del panel de Django. Por esa razon estas funciones deben ser desconectadas cuando el usuario se crea desde el frontend, para que no se intente crear o guardar el empleados dos veces.
 
     if data.get("IMAGEN"):
         Empleado.objects.create(
@@ -68,7 +67,6 @@ def crear_user(request):
     post_save.connect(create_empleado, sender=User)
     post_save.connect(save_empleado, sender=User)
 
-    # Fijate como usas el mismo serializador (UserSerializer) para tu cuenta y para los usuarios. En realidad, debes crear un serializador llamado UserSerializerWithToken para poder obtener el token de tu cuenta ne el backend
     serializer = UserSerializer(user)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -76,7 +74,7 @@ def crear_user(request):
 @api_view(["GET"])
 def usuario_detail(request, pk):
     try:
-        usuario = User.objects.get(pk=pk)
+        usuario = User.objects.prefetch_related("empleado").get(pk=pk)
     except User.DoesNotExist:
         return Response(
             {"Detalles": "Usuario con el dado id no existe"},
@@ -101,6 +99,8 @@ def modificar_usuario(request, pk):
 
     if request.method == "PUT":
         # Modificar permisos
+        # PORQUE SERA QUE EL FRONTEND envia "true" como string y no True?
+        # aqui si debe enviar True
         usuario.is_staff = data["is_admin"] == "true"
         usuario.save()
 

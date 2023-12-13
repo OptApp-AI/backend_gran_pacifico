@@ -16,10 +16,9 @@ from api.serializers import (
     # Ruta
     RutaSerializer,
     RutaDiaSerializer,
-    ClientesRutaSerializer,
     RutaRegistrarClienteSerializer,
-    ClienteRealizarSalidaRutaSerializer,
-    RutasRealizarSalidaRutaSerializer,
+    ClienteConRutaDiaSerializer,
+    RutasConRutaDiaSerializer,
 )
 from django.db.models import Case, When, Value, IntegerField
 from django.db.models import Case, When, Value, IntegerField
@@ -29,6 +28,7 @@ from django.core.cache import cache
 # Changes
 from django.db.models import Q
 from django.db import transaction
+from django.db.models import Prefetch
 
 
 @api_view(["GET"])
@@ -53,8 +53,20 @@ def cliente_list(request):
         q_objects = Q(**{f"{filtrar_por}__icontains": buscar})
 
     # prefetch_related with a reverse relation like precios_cliente makes sense if you expect to access the related PrecioCliente objects when dealing with a Cliente object. Doing so will fetch the related PrecioCliente objects in a single query, reducing the number of database hits when you loop through Cliente objects later on.
-    queryset = Cliente.objects.filter(q_objects).prefetch_related(
-        "RUTAS", "precios_cliente"
+
+    # why to use select_related with DIRECTION: When you serialize your Cliente objects to send data to the frontend, the serializer will access all relevant fields, including any related fields that are included in the serialization. If DIRECCION is part of the serialized data, the serializer will access it for each Cliente object.
+
+    # select_related: one to one field and foreign key relationships
+    # prefetch_related: many to many fields and reverse relationships
+
+    precios_cliente_prefetch = Prefetch(
+        "precios_clientes", queryset=PrecioCliente.objects.select_related("PRODUCTO")
+    )
+
+    queryset = (
+        Cliente.objects.filter(q_objects)
+        .select_related("DIRECCION")
+        .prefetch_related("RUTAS", precios_cliente_prefetch)
     )
 
     # Ordenar usando clienteordenarpor
@@ -91,11 +103,11 @@ def cliente_list(request):
 
     serializer = ClienteSerializer(clientes, many=True)
 
-    response_data = {
-        "clientes": serializer.data,
-        "page": page,
-        "pages": paginator.num_pages,
-    }
+    # response_data = {
+    #     "clientes": serializer.data,
+    #     "page": page,
+    #     "pages": paginator.num_pages,
+    # }
 
     # Cache the result
     # cache.set(
@@ -132,25 +144,30 @@ def cliente_venta_lista(request):
     # if cached_data:
     #     return Response(cached_data, status=status.HTTP_200_OK)
 
+    precios_cliente_prefetch = Prefetch(
+        "precios_cliente", queryset=PrecioCliente.objects.select_related("PRODUCTO")
+    )
+
     if nombre:
         # Use .only() to limit the fields fetched from the Cliente model.
+
         queryset = (
             Cliente.objects.filter(NOMBRE__icontains=nombre)
             .only("id", "NOMBRE")
+            .prefetch_related(precios_cliente_prefetch)[:5]
             .order_by("NOMBRE")
-            .prefetch_related("precios_cliente")[:5]
         )
         if not queryset.exists():
             queryset = (
                 Cliente.objects.filter(NOMBRE="MOSTRADOR")
                 .only("id", "NOMBRE")
-                .prefetch_related("precios_cliente")
+                .prefetch_related(precios_cliente_prefetch)
             )
     else:
         queryset = (
             Cliente.objects.filter(NOMBRE="MOSTRADOR")
             .only("id", "NOMBRE")
-            .prefetch_related("precios_cliente")
+            .prefetch_related(precios_cliente_prefetch)
         )
 
     # Serialize data manually. This is necessary in order to obtain precios_cliente. Even though I don't understand why.
@@ -184,35 +201,36 @@ def crear_cliente(request):
 
         # 2. Create PrecioCliente
         precios_cliente = data["preciosCliente"]
-        precio_cliente_objs = [
+
+        # Create instances but don't save them yet
+        precio_cliente_instances = [
             PrecioCliente(
                 CLIENTE=cliente,
-                PRODUCTO=Producto.objects.get(pk=precio_cliente["precioClienteId"]),
+                PRODUCTO_id=precio_cliente["precioClienteId"],
                 PRECIO=precio_cliente["nuevoPrecioCliente"],
             )
             for precio_cliente in precios_cliente
         ]
-        PrecioCliente.objects.bulk_create(precio_cliente_objs)
+
+        PrecioCliente.objects.bulk_create(precio_cliente_instances)
 
         # 3. Create Direccion
         direccion = data["direccion"]
-        print("DIRECCION", direccion)
         nueva_direccion = Direccion.objects.create(**direccion)
         cliente.DIRECCION = nueva_direccion
-        print("CLIENTE", cliente)
 
         # 4. Set Rutas
         rutas_ids = data.get("rutasIds", [])
-        if rutas_ids:
-            rutas = RutaDia.objects.filter(id__in=rutas_ids)
-            cliente.RUTAS.set(rutas)
+        # if rutas_ids:
+        #     rutas = RutaDia.objects.filter(id__in=rutas_ids)
+        #     cliente.RUTAS.set(rutas)
+        cliente.RUTAS.set(rutas_ids)
 
         cliente.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        print("ERROR", str(e))
         # Any exception will cause a rollback
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -220,7 +238,14 @@ def crear_cliente(request):
 @api_view(["GET"])
 def cliente_detail(request, pk):
     try:
-        cliente = Cliente.objects.get(pk=pk)
+        precios_cliente_prefetch = Prefetch(
+            "precios_cliente", queryset=PrecioCliente.objects.select_related("PRODUCTO")
+        )
+        cliente = (
+            Cliente.objects.select_related("DIRECCION")
+            .prefetch_related("RUTAS", precios_cliente_prefetch)
+            .get(pk=pk)
+        )
     except Cliente.DoesNotExist:
         return Response(
             {"message": "Cliente con el id dado no existe"},
@@ -236,11 +261,7 @@ def cliente_detail(request, pk):
 @transaction.atomic  # Ensures atomic transaction
 def modificar_cliente(request, pk):
     try:
-        cliente = (
-            Cliente.objects.select_related("DIRECCION")
-            .prefetch_related("RUTAS")
-            .get(pk=pk)
-        )
+        cliente = Cliente.objects.get(pk=pk)
     except Cliente.DoesNotExist:
         return Response(
             {"message": "Cliente con el id dado no existe"},
@@ -258,28 +279,26 @@ def modificar_cliente(request, pk):
             # 2. Modificar el precio de los clientes
             nuevos_precios_cliente = data["nuevosPreciosCliente"]
 
-            for nuevo_precio_cliente in nuevos_precios_cliente:
-                precioCliente = PrecioCliente.objects.get(
-                    pk=nuevo_precio_cliente["precioClienteId"]
-                )
-                precioCliente.PRECIO = nuevo_precio_cliente["nuevoPrecioCliente"]
-                precioCliente.save()
+            precio_cliente_ids = [
+                precio["precioClienteId"] for precio in nuevos_precios_cliente
+            ]
 
-            # 3. Modificar la direccion
-            # nueva_direccion = data["nuevaDireccion"]
+            precio_map = {
+                precio["precioClienteId"]: precio["nuevoPrecioCliente"]
+                for precio in nuevos_precios_cliente
+            }
 
-            # direccionCliente = Direccion.objects.get(
-            #     pk=nueva_direccion["direccionClienteId"]
-            # )
+            precio_cliente_instances = PrecioCliente.objects.filter(
+                id__in=precio_cliente_ids
+            )
+            # Updating Instances in Memory:
+            for instance in precio_cliente_instances:
+                instance.PRECIO = precio_map[instance.id]
 
-            # direccionCliente.CALLE = nueva_direccion["CALLE"]
-            # direccionCliente.NUMERO = nueva_direccion["NUMERO"]
-            # direccionCliente.COLONIA = nueva_direccion["COLONIA"]
-            # direccionCliente.CIUDAD = nueva_direccion["CIUDAD"]
-            # direccionCliente.MUNICIPIO = nueva_direccion["MUNICIPIO"]
-            # direccionCliente.CP = nueva_direccion["CP"]
-
-            # direccionCliente.save()
+            # Updating Instances in data base:
+            PrecioCliente.objects.bulk_update(
+                precio_cliente_instances, ["PRECIO"]
+            )  # This is much more efficient than calling save() on each individual instance.
 
             # 3. Update Address
             nueva_direccion = data["nuevaDireccion"]
@@ -287,18 +306,13 @@ def modificar_cliente(request, pk):
                 "direccionClienteId"
             )  # Remove and retrieve 'direccionClienteId'
 
-            print("NUEVA DIRECCION", nueva_direccion)
             Direccion.objects.filter(pk=direccion_id).update(**nueva_direccion)
 
-            # 4. Actualizar rutas del cliente
-            # nuevas_rutas_ids = data["nuevasRutasIds"]
-            # if nuevas_rutas_ids:
-            #     ruta_dias = RutaDia.objects.filter(id__in=nuevas_rutas_ids)
-            #     cliente.RUTAS.set(ruta_dias)
-            # 4. Update Client Routes
+            # 4. Update Client Rutas
             nuevas_rutas_ids = data.get("nuevasRutasIds", [])
             if nuevas_rutas_ids:
-                cliente.RUTAS.set(RutaDia.objects.filter(id__in=nuevas_rutas_ids))
+                # cliente.RUTAS.set(RutaDia.objects.filter(id__in=nuevas_rutas_ids))
+                cliente.RUTAS.set(nuevas_rutas_ids)
 
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -312,12 +326,27 @@ def modificar_cliente(request, pk):
         )
 
 
+# Esta vista permite seleccionar las ruta dia cuando se registra un cliente
+@api_view(["GET"])
+def rutas_registrar_cliente(request):
+    # This is efficient because it prevents the N+1 query problem. Without select_related, each access to ruta.REPARTIDOR in your serializer would potentially trigger an additional query to fetch the Empleado object.
+    rutas = Ruta.objects.only("NOMBRE").prefetch_related("ruta_dias").all()
+    serializer = RutaRegistrarClienteSerializer(rutas, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# Clientes de la ruta dia
+# Esta vista me permite acceder a los clientes que pertenecen a una ruta dia. La vista se usa al ver detalles de ruta dia en el modal
+@api_view(["GET"])
+def clientes_ruta(request, pk):
+    nombres = Cliente.objects.filter(RUTAS__id=pk).values_list("NOMBRE", flat=True)
+    return Response(list(nombres), status=status.HTTP_200_OK)
+
+
 # Rutas
-
-
 @api_view(["GET"])
 def ruta_list(request):
-    rutas = Ruta.objects.all().order_by("-id")
+    rutas = Ruta.objects.select_related("REPARTIDOR").all().order_by("-id")
 
     serializer = RutaSerializer(rutas, many=True)
 
@@ -385,7 +414,11 @@ def modificar_ruta(request, pk):
 
 @api_view(["GET"])
 def ruta_dias_list(request, pk):
-    ruta_dias = RutaDia.objects.filter(RUTA=pk)
+    ruta_dias = (
+        RutaDia.objects.select_related("RUTA")
+        .select_related("REPARTIDOR")
+        .filter(RUTA=pk)
+    )
 
     serializer = RutaDiaSerializer(ruta_dias, many=True)
 
@@ -416,15 +449,6 @@ def modificar_ruta_dia(request, pk):
 
     data = request.data
 
-    # REPARTIDOR = data.get("REPARTIDOR")
-    # REPARTIDOR_NOMBRE = data.get("REPARTIDOR_NOMBRE")
-
-    # ruta_dia.REPARTIDOR = REPARTIDOR
-    # ruta_dia.REPARTIDOR_NOMBRE = REPARTIDOR_NOMBRE
-    # ruta_dia.save()
-
-    # return Response({"Ruta ha sido actualizada exitosamente"}, status=status.HTTP_200_OK)
-
     serializer = RutaDiaSerializer(instance=ruta_dia, data=data)
 
     if serializer.is_valid():
@@ -436,46 +460,28 @@ def modificar_ruta_dia(request, pk):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Clientes de la ruta dia
-# Esta vista me permite acceder a los clientes que pertenecen a una ruta dia. La vista se usa al ver detalles de ruta dia en el modal
-@api_view(["GET"])
-def clientes_ruta(request, pk):
-    try:
-        ruta_dia = RutaDia.objects.get(id=pk)
-    except RutaDia.DoesNotExist:
-        return Response(
-            {"message": "Ruta con el id dado no existe"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    # clientes = Cliente.objects.filter(RUTA=pk)
-
-    serializer = ClientesRutaSerializer(ruta_dia)
-
-    return Response(serializer.data, status=status.HTTP_200_OK)
+# Esto se usa al momento de generar una salida ruta
+# Esta vista permite obtener los clientes en el formato "NOMBRE", "id", "ruta_dia_ids" para poder obtener el cliente con una lista de ids de las rutas dia en la que se encuentra
 
 
-@api_view(["GET"])
-def rutas_registrar_cliente(request):
-    rutas = Ruta.objects.all()
-    serializer = RutaRegistrarClienteSerializer(rutas, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+# Creo que seria mas sencillo mandar la ruta dia con una lista de clientes id que pertenecen a esa ruta dia
 
 
-# Esta vista permite obtener los clientes en el formato "NOMBRE", "id", "ruta_dia_ids" para poder seleccionar los clientes de una ruta dia es espefifico
+# I have to change this view. Instead of sending clients with a list of ruta_dia_ids I should send a ruta dia with a list of clientes (maybe only the cliente id or maybe the cliente and NOMBRE)
 @api_view(["GET"])
 def clientes_salida_ruta_list(request):
-    clientes = Cliente.objects.all()
+    clientes = Cliente.objects.only("NOMBRE", "id").prefetch_related("RUTAS").all()
 
-    serializer = ClienteRealizarSalidaRutaSerializer(clientes, many=True)
+    serializer = ClienteConRutaDiaSerializer(clientes, many=True)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# Esto se usa al momento de generar una salida ruta
 @api_view(["GET"])
 def ruta_salida_ruta_list(request):
-    rutas = Ruta.objects.all()
+    rutas = Ruta.objects.only("NOMBRE", "id").prefetch_related("ruta_dias").all()
 
-    serializer = RutasRealizarSalidaRutaSerializer(rutas, many=True)
+    serializer = RutasConRutaDiaSerializer(rutas, many=True)
 
     return Response(serializer.data, status=status.HTTP_200_OK)

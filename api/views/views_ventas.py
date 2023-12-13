@@ -7,17 +7,18 @@ from api.models import (
     ProductoVenta,
 )
 from api.serializers import (
+    VentaReporteSerializer,
     VentaSerializer,
-    ProductoVentaSerializer,
 )
 from django.db.models import Case, When, Value, IntegerField
 from django.utils.dateparse import parse_date
-from django.db.models import Case, When, Value, IntegerField
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import timedelta
 from .utilis.ventas import filter_by_date
 from django.db.models import Q
 from django.core.cache import cache
+from django.db.models import Prefetch
+from django.db import transaction
 
 # Vistas para ventas
 
@@ -38,13 +39,17 @@ def venta_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
 
+    # One of the reasons I added NOMBRE_CLIENTE is to use this field as filtering
     filters = Q()
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
+    productos_venta_prefetch = Prefetch(
+        "productos_venta", queryset=ProductoVenta.objects.select_related("PRODUCTO")
+    )
     queryset = (
         Venta.objects.select_related("CLIENTE")
-        .prefetch_related("productos_venta")
+        .prefetch_related(productos_venta_prefetch)
         .filter(filters)
     )
 
@@ -109,11 +114,17 @@ def venta_reporte_list(request):
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por}__icontains": buscar})
 
-    queryset = (
-        Venta.objects.select_related("CLIENTE")
-        .prefetch_related("productos_venta")
-        .filter(filters)
-    )
+    queryset = Venta.objects.only(
+        "id",
+        "VENDEDOR",
+        "NOMBRE_CLIENTE",
+        "FECHA",
+        "MONTO",
+        "TIPO_VENTA",
+        "TIPO_PAGO",
+        "OBSERVACIONES",
+        "DESCUENTO",
+    ).filter(filters)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -126,7 +137,7 @@ def venta_reporte_list(request):
     queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
 
     # Serialize the queryset
-    serializer = VentaSerializer(queryset, many=True)
+    serializer = VentaReporteSerializer(queryset, many=True)
     response_data = serializer.data
 
     # Cache the result
@@ -141,50 +152,56 @@ def venta_reporte_list(request):
 
 
 @api_view(["POST"])
+@transaction
 def crear_venta(request):
     data = request.data
-
+    # Aqui la data va a cambiar para ventas en salida ruta, en especifico tipo_venta es ruta
     serializer = VentaSerializer(data=data)
-
     if serializer.is_valid():
         venta = serializer.save()
-
         productos_venta = data["productosVenta"]
-
-        print("PRODUCTOS VENTA:-------", productos_venta)
-
-        for producto_venta in productos_venta:
-            producto = Producto.objects.get(pk=producto_venta["productoId"])
-
-            nuevo_producto_venta = ProductoVenta.objects.create(
+        productos_ids = [
+            producto_venta["productoId"] for producto_venta in productos_venta
+        ]
+        producto_instances = Producto.objects.filter(id__in=productos_ids)
+        producto_cantidad_venta_map = {
+            producto_venta["productoId"]: producto_venta["cantidadVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_precio_venta_map = {
+            producto_venta["productoId"]: producto_venta["precioVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_venta_instances = []
+        for producto in producto_instances:
+            nuevo_producto_venta = ProductoVenta(
                 VENTA=venta,
                 PRODUCTO=producto,
                 NOMBRE_PRODUCTO=producto.NOMBRE,
-                CANTIDAD_VENTA=producto_venta["cantidadVenta"],
-                PRECIO_VENTA=producto_venta["precioVenta"],
+                CANTIDAD_VENTA=producto_cantidad_venta_map[producto.id],
+                PRECIO_VENTA=producto_precio_venta_map[producto.id],
             )
-
+            producto_venta_instances.append(nuevo_producto_venta)
+            # Aqui tampo quiero descontar cantidad del producto si la venta es en salida ruta, porque el producto ya fue descontado del inventario al generar la salida ruta
             if data["STATUS"] == "REALIZADO":
                 producto.CANTIDAD -= nuevo_producto_venta.CANTIDAD_VENTA
-                producto.save()
-
-            nuevo_producto_venta.save()
-
+        Producto.objects.bulk_update(producto_instances, ["CANTIDAD"])
+        ProductoVenta.objects.bulk_create(producto_venta_instances)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    print("ERRORES:", serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-@api_view(["POST"])
-def creat_venta_salida_ruta(request):
-
-    pass
 
 @api_view(["GET"])
 def venta_detail(request, pk):
     try:
-        venta = Venta.objects.get(pk=pk)
+        productos_venta_prefetch = Prefetch(
+            "productos_venta", queryset=ProductoVenta.objects.select_related("PRODUCTO")
+        )
+        venta = (
+            Venta.objects.select_related("CLIENTE")
+            .prefetch_related(productos_venta_prefetch)
+            .get(pk=pk)
+        )
 
     except Venta.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -196,52 +213,63 @@ def venta_detail(request, pk):
 @api_view(["PUT", "DELETE"])
 def modificar_venta(request, pk):
     try:
-        venta = Venta.objects.get(pk=pk)
+        productos_venta_prefetch = Prefetch(
+            "productos_venta", queryset=ProductoVenta.objects.select_related("PRODUCTO")
+        )
+        venta = Venta.objects.prefetch_related(productos_venta_prefetch).get(pk=pk)
 
     except Venta.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "PUT":
-        reporte_cambios = {}
-
-        data = request.data
-
-        status_actual = venta.STATUS
-        status_cambios = {"ANTES": status_actual}
-
-        status_nuevo = data["STATUS"]
-
-        productos_venta = venta.productos_venta
-
-        serializer = ProductoVentaSerializer(productos_venta, many=True)
-
-        for producto_venta_serializer in serializer.data:
-            producto = Producto.objects.get(
-                NOMBRE=producto_venta_serializer["NOMBRE_PRODUCTO"]
-            )
-
-            producto_cambios = {"ANTES": producto.CANTIDAD}
-
-            cantidad_venta = producto_venta_serializer["CANTIDAD_VENTA"]
-
-            producto.CANTIDAD = calcular_cantidad(
-                status_actual, status_nuevo, producto.CANTIDAD, cantidad_venta
-            )
-            producto.save()
-            producto_cambios["DESPUES"] = producto.CANTIDAD
-
-            reporte_cambios[producto.NOMBRE] = producto_cambios
-
-        venta.STATUS = status_nuevo
-        venta.save()
-        status_cambios["DESPUES"] = venta.STATUS
-        reporte_cambios["STATUS"] = status_cambios
-
-        return Response(reporte_cambios)
+        return modificar_venta_put(request, venta)
 
     elif request.method == "DELETE":
         venta.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Product has been deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+def modificar_venta_put(request, venta):
+    data = request.data.get("STATUS")
+    if data is None:
+        return Response(
+            {"error": "STATUS is required"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    status_actual = venta.STATUS
+    status_cambios = {"ANTES": status_actual, "DESPUES": data}
+
+    # Obtener productos venta de la venta
+    productos_venta = venta.productos_venta.all()
+
+    productos_to_update = []
+
+    reporte_cambios = {}
+
+    for producto_venta in productos_venta:
+        # This is why i need the foreign key relationship from producto_venta to producto
+        producto = producto_venta.producto
+        producto_cambios = {"ANTES": producto.CANTIDAD}
+
+        cantidad_venta = producto_venta.CANTIDAD_VENTA
+        producto.CANTIDAD = calcular_cantidad(
+            status_actual, data, producto.CANTIDAD, cantidad_venta
+        )
+        productos_to_update.append(producto)
+
+        producto_cambios["DESPUES"] = producto.CANTIDAD
+        reporte_cambios[producto.NOMBRE] = producto_cambios
+
+    Producto.objects.bulk_update(productos_to_update, ["CANTIDAD"])
+
+    venta.STATUS = data
+    venta.save()
+
+    reporte_cambios["STATUS"] = status_cambios
+    return Response(reporte_cambios)
 
 
 def calcular_cantidad(status_actual, status, cantidad_antes, cantidad_venta):
@@ -249,11 +277,6 @@ def calcular_cantidad(status_actual, status, cantidad_antes, cantidad_venta):
         if status == "REALIZADO":
             return cantidad_antes - cantidad_venta
         else:
-            return cantidad_antes
-    elif status_actual == "REALIZADO":
-        if status in ["PENDIENTE", "CANCELADO"]:
-            return cantidad_antes + cantidad_venta
-        else:
-            return cantidad_antes
+            return cantidad_antes  # cancelado
     else:
         return cantidad_antes

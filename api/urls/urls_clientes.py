@@ -21,7 +21,8 @@ urlpatterns = [
     path("modificar-ruta-dia/<str:pk>/", views_clientes.modificar_ruta_dia),
     # Estas ruta contiene el nombre de la ruta y una array con los ids de las rutas dias correspondiente. Se usan para crear o editar un cliente
     path("rutas-registrar-cliente/", views_clientes.rutas_registrar_cliente),
-    #
+    # Esta vista se usa para obtener los clientes en un formato que permita crear la salida ruta
     path("clientes-salida-ruta/", views_clientes.clientes_salida_ruta_list),
+    # Esta vista se usa para obtener las rutas en un formato que permita crear la salida ruta
     path("rutas-salida-ruta/", views_clientes.ruta_salida_ruta_list),
 ]

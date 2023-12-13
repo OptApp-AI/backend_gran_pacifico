@@ -1,10 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 
 
 class Empleado(models.Model):
+    # The related_name is the way I access the empleado instance from the user instance
     USUARIO = models.OneToOneField(
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="empleado"
     )
@@ -44,11 +44,14 @@ class Producto(models.Model):
         super().save(*args, **kwargs)
 
 
+# El ajuste de inventario va a quedar como pendiente hasta que un administrador lo autorice
 class AjusteInventario(models.Model):
+    # quiza deberia poner un foreign key a un empleado aqui
     CAJERO = models.CharField(max_length=200)
 
     BODEGA = models.CharField(max_length=200)
-    # ADMINISTRADOR = models.CharField(max_length=200)
+    # Should I add the admin filed in order to know who authorized this adjustemnt to inventory
+    ADMINISTRADOR = models.CharField(max_length=200, blank=True)
 
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True)
     # The reason why i add the product name and not just the foreign key relationship is because if i delete the product, i want to have a way to know what product was used for this ajuste inventario row
@@ -59,7 +62,8 @@ class AjusteInventario(models.Model):
     TIPO_AJUSTE = models.CharField(
         max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
     )
-
+    # status is pendiente until an admin changes the status to relizado
+    # La cajera realiza el ajuste inventario, pero mientras el administrador no la autorice, el STATUS permanece como pendiente y la cajera no puede realizar el corte
     STATUS = models.CharField(
         max_length=200,
         choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
@@ -79,6 +83,7 @@ class AjusteInventario(models.Model):
         return f"{self.PRODUCTO_NOMBRE}, {self.TIPO_AJUSTE}, {self.CANTIDAD}"
 
 
+# This model is just on allow model clients to add address information without creating too many fileds in Client model
 class Direccion(models.Model):
     CALLE = models.CharField(max_length=200)
     NUMERO = models.CharField(max_length=200)
@@ -110,11 +115,12 @@ class Cliente(models.Model):
         ("CREDITO", "CREDITO"),
     )
 
-    NOMBRE = models.CharField(max_length=200)
+    NOMBRE = models.CharField(max_length=200, db_index=True)
 
     CONTACTO = models.CharField(max_length=200, null=True, blank=True)
 
     # Is this expensive?
+    # Maybe I should add a select_related for this field?
     DIRECCION = models.OneToOneField(
         Direccion, on_delete=models.CASCADE, blank=True, null=True
     )
@@ -155,10 +161,13 @@ class PrecioCliente(models.Model):
         Cliente, on_delete=models.CASCADE, related_name="precios_cliente"
     )
 
+    # Here i won't add CLIENTE_NOMBRE because it doesn't make sense to have a price of this client if the client  has been deleted.
+
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.CASCADE)
     # si borro el producto no tiene caso tener el nombre del producto, por eso no lo puse aqui como otro campo
 
     PRECIO = models.FloatField(validators=[MinValueValidator(0)])  # REMOVE THIS FIELD
+    # Maybe for the general code we should consider using relative prices just as Gabriel said
     # DESCUENTO = models.FloatField(validators=[MinValueValidator(0), MaxValueValidator(1)]) # ADD THIS FIELD
 
     # En este metodo nunca debes de poner algo que se pueda volver None. Por ejemplo, en este caso estamos seguros de que CLIENTE y PRODUCTO siempre seran valores distintos de None
@@ -166,21 +175,21 @@ class PrecioCliente(models.Model):
         return f"{self.CLIENTE.NOMBRE}, {self.PRODUCTO.NOMBRE}, {self.PRECIO}"
 
 
+# Esta tabla se usa para registrar tanto ventas a mostrador como ventas en salida ruta
 class Venta(models.Model):
     VENDEDOR = models.CharField(max_length=100)
+    # Para ventas a mostrador existe el cliente mostrador que siempre tiene los precios generales de cada producto sin ningun descuento.
 
-    # Creo que deberia cambia el foreigkey por un charfield
-    # no necesito el cliente entero para registrar una venta, solo necesito su nombre
-    # Ya lo puedo borrar (Lo voy a dejar por ahora, pero no lo necesito)
+    # De igual forma, para las ventas en salida ruta debe existir un cliente para realizar ventas sin descuento (RUTA)
     CLIENTE = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True)
-    # la razon por la que registro el nombre del cliente ademas del foreign key es porque en caso de borrar el cliente quiero saber a que cliente se le realizo la venta, incluso si ese cliente no existe en la base de datos
-    NOMBRE_CLIENTE = models.CharField(max_length=200)
+
+    NOMBRE_CLIENTE = models.CharField(max_length=200, db_index=True)
 
     FECHA = models.DateTimeField(auto_now=True)
 
     MONTO = models.FloatField(validators=[MinValueValidator(0)])
 
-    # Esto de tipo de pago sirve principalmente para distinguir entre ventas a mostrador y las ventas en salida ruta
+    # Esto de tipo de pago sirve principalmente para distinguir entre ventas a mostrador y las ventas en salida ruta. Deberia de existir un campo adicional para identificar a que salida ruta pertenece la venta
     TIPO_VENTA = models.CharField(
         max_length=100, choices=(("MOSTRADOR", "MOSTRADOR"), ("RUTA", "RUTA"))
     )
@@ -217,12 +226,13 @@ class ProductoVenta(models.Model):
     VENTA = models.ForeignKey(
         Venta, on_delete=models.CASCADE, related_name="productos_venta"
     )
-    # Tampoco necesito el id del producto, solo su nombre. En realidad no es tan importante dejar o no esta relacion. Lo que importa es que hacer cuando un producto es eliminado, en este caso el producto venta permanece con producto igual a null.
-    # Una razon para usar el id y no el nombre al momento de registrar el producto venta, es si es importante actualizar el producto venta cuando el producto es actualizado, por ejemplo, cambiar el nombre.
+    # SI CAMBIO STATUS DE PENDIENTE A CANCELADO O REALIZADO ES A TRAVES DE ESTA RELACION QUE PUEDO REGRESAR PRODUCTO AL STOCK
     PRODUCTO = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True)
+    # usando un ternario en js puedo decir que si el producto es null entonces en lugar de usar el producto.nombre se use el nombre_producto
     NOMBRE_PRODUCTO = models.CharField(max_length=200)
 
     CANTIDAD_VENTA = models.FloatField(validators=[MinValueValidator(0)])
+    # quiza no requiero precio venta en el frontend?
     PRECIO_VENTA = models.IntegerField(validators=[MinValueValidator(0)])
 
     def __str__(self):
@@ -230,13 +240,13 @@ class ProductoVenta(models.Model):
 
 
 # RUTA 6
-
-
 class Ruta(models.Model):
     NOMBRE = models.CharField(max_length=100, unique=True)
 
     REPARTIDOR = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True)
-    # the reason why we add the delivery man name and not just the foreign key is because in case the emplado is deleted we need a way to know who was the delivery man for this ruta
+    # the reason why we add the delivery man name and not just the foreign key is because in case the emplado is deleted we need a way to know who was the delivery man for this ruta.
+
+    # This is a valid approach for maintaining historical data, but it also means you need to ensure that REPARTIDOR_NOMBRE is updated whenever REPARTIDOR changes. This logic should be handled in the save method of your Ruta model or through Django signals.
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
 
     def save(self, *args, **kwargs):
@@ -251,9 +261,11 @@ class Ruta(models.Model):
 
 
 class RutaDia(models.Model):
+    # With cascade i make sure ruta dias are deleted when ruta is deleted
     RUTA = models.ForeignKey(Ruta, on_delete=models.CASCADE, related_name="ruta_dias")
 
     REPARTIDOR = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True)
+    # This is a valid approach for maintaining historical data, but it also means you need to ensure that REPARTIDOR_NOMBRE is updated whenever REPARTIDOR changes. This logic should be handled in the save method of your Ruta model or through Django signals.
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
 
     DIA = models.CharField(
@@ -279,13 +291,12 @@ class RutaDia(models.Model):
         return f"{self.RUTA.NOMBRE}, {self.DIA}, {self.REPARTIDOR_NOMBRE}"
 
 
-# 1. LOS PRODUCTOS DE SALIDA A RUTA SE RETIRAN DEL STOCK SIEMPRE. NO IMPORTA EL STATUS
-# 2. EXISTEN LOS MISMOS TRES STATUS: PENDIENTE, REALIZADO, CANCELADO. SIEMPRE SE GENERA CON STATUS PENDIENTE
-# 3. EN GENERAL LOS CAMPOS SON SIMIILARES (ATIENDE, FECHA, OBSERVACIONES, ETC.)
-# 5. SE PUEDEN HACER DEVOLUCIONES. LAS DEVOLUCIONES LAS PUEDEN HACER CAJEROS (LUEGO VEMOS A LOS ADMIS)
-# 6. AL HACER ESTO SE GENERA UNA DEVOLUCION CON STATUS DE PENDIENTE. SOLO HASTA QUE EL ADMI CAMBIA SU STATUS A REALIZADO ES QUE SE REGRESAN LOS PRODUCTOS AL STOCK
-# ESTA ES UNA PREGUNTA IMPORTANTE ¿DEBERIAN DE REGRESARSE LOS PRODUCTOS AL STOCK EN EL MOMENTO QUE EL CAJERO REALIZA LA DEVOLUCION, O ESPERAMOS HASTA QUE EL ADMIN LA AUTORIZA?
-# 7. CUANDO EL CAJERO ENTRE A LA SALIDARUTA, SOLO PUEDE DEVOLVER LOS PRODUCTOS CON STATUS DE CARGADO
+# 1. LOS PRODUCTOS DE SALIDA A RUTA SE RETIRAN DEL STOCK CUANDO SE GENERA LA SALIDA RUTA
+# 2. EXISTEN TRES STATUS PARA LA SALIDA RUTA: PENDIENTE, REALIZADO, CANCELADO. SIEMPRE SE GENERA CON STATUS PENDIENTE
+# 3. EN GENERAL LOS CAMPOS SON SIMIILARES (ATIENDE, FECHA, OBSERVACIONES, ETC.) A LA TABLA VENTA
+# 4. SE PUEDEN HACER DEVOLUCIONES. LAS DEVOLUCIONES LAS PUEDEN HACER CAJEROS PERO DEBEN SER AUTORIZADAS POR LOS ADMINISTRADORES
+# 5. AL HACER UNA DEVOLUCION SE GENERA CON STATUS DE PENDIENTE. SOLO HASTA QUE EL ADMI CAMBIA SU STATUS A REALIZADO ES QUE SE REGRESAN LOS PRODUCTOS AL STOCK
+# 6. CUANDO EL CAJERO ENTRE A LA SALIDARUTA, SOLO PUEDE DEVOLVER LOS PRODUCTOS CON STATUS DE CARGADO
 class SalidaRuta(models.Model):
     ATIENDE = models.CharField(max_length=100)
     RUTA = models.ForeignKey(
@@ -298,8 +309,6 @@ class SalidaRuta(models.Model):
     RUTA_NOMBRE = models.CharField(max_length=200, blank=True)
     FECHA = models.DateTimeField(auto_now=True)
 
-    # Aquí cambiar esto por un Empleado. PARA QUE QUIERES AL EMPLEADO, NECESITAS ACCEDER A ALGUN DATOS DEL EMPLEADO DESDE LA SALIDA RUTA
-    # CUANDO EL REPARTIDOR INICIE SESSION, COMO VA A ACCEDER A LA SalidRuta. DEBERIA DE TENER SOLO UNA SalidaRuta con STATUS de pendiente o progreso, y es a traves de este campo que el va a acceder.
     REPARTIDOR = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True)
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
     # Si hubo una devolucion en esta salida a ruta el administrador va a hacer la devolucion aqui
@@ -307,20 +316,20 @@ class SalidaRuta(models.Model):
     STATUS = models.CharField(
         max_length=100,
         choices=(
-            # Sale como pendiente mientras no venda todos los productos. Si al final del corte hay productos y se requiere una devolucion. Es necesario hacer una devolucion para cambiar el status a realizado. O bien, se pueden cancelar.
+            # Sale como pendiente y permanece asi mientras no venda productos. Mientras el status sea pendiente se pueden cancelar siempre.
             ("PENDIENTE", "PENDIENTE"),
+            # Una vez que se realiza una venta el status cambia a progreso. Si al final del corte hay productos, se requiere una devolucion para poder cambiar el status a realizado. De igual forma, si al momento de realizar el corte existen clientes sin visitar el status continuara siendo progreso y se requiere realizar un aviso de visita para cada cliente al que no se le ha vendido producto. Cuando el status es progreso se pueden realizar recargas con el fin de agregar mas producto a la salida ruta
             ("PROGRESO", "PROGRESO"),
-            # Cambia a realizado cuando vendio todos los productos
-            # Cada vez que se vende un ProductoSalidaRuta de esta salida ruta se verifica esto para ver si se debe cambiar
+            # Cambia a realizado cuando se vendieron todos los productos y se visito a todos los clientes.
+            # Cada vez que se realiza una venta se verifica esto para ver si se debe cambiar el status a realizado
             ("REALIZADO", "REALIZADO"),
             # Se puede cancelar y todos los productos se regresan al almacen. Todos los ProductoSalidaRuta y ClienteSalidaRuta se cancelan.
-            #  NO ES POSIBLE CANCELAR SI YA SE VENDIO ALGO
+            #  NO ES POSIBLE CANCELAR SI YA SE VENDIO ALGO (status es progreso) SOLO SE PUEDE CANCELAR UNA SALIDA RUTA CON STATUS DE PENDIENTE
             ("CANCELADO", "CANCELADO"),
         ),
     )
 
     def __str__(self):
-        # DESPUES HAY QUE CAMBIAR ESTO PORQUE SI SE BORRA EL ATIENDE O REPARTIDOR VAN A EXISTIR PROBLEMAS. NO EN REALIDAD PORQUE ATIENDE ES UN CHARFIELD, usar empleado_nombre EN LUGAR DE EMPLEADO, para que no haya problemas
         return f"{self.ATIENDE}, {self.REPARTIDOR_NOMBRE}"
 
 
@@ -330,7 +339,7 @@ class ProductoSalidaRuta(models.Model):
     SALIDA_RUTA = models.ForeignKey(
         SalidaRuta, on_delete=models.CASCADE, related_name="productos"
     )
-    # Aqui si usamos el objeto producto porque sera necesario acceder a este para hacer las devoluciones
+    # Aqui si usamos el objeto producto porque sera necesario acceder a este para hacer las devoluciones y tambien para cancelar salida ruta
     PRODUCTO_RUTA = models.ForeignKey(Producto, on_delete=models.CASCADE)
     PRODUCTO_NOMBRE = models.CharField(max_length=200)
     CANTIDAD_RUTA = models.IntegerField(validators=[MinValueValidator(0)])
@@ -338,7 +347,6 @@ class ProductoSalidaRuta(models.Model):
     # SI CANCELAN LA SALIDARUTA LOS PRODUCTOS SE CANCELAN TAMBIEN. Una devolucion tambien ocasiona que los productos se cancelen
     # CANCELAR UN PRODUCTO ES LO QUE USARE PARA REGRESAR EL PRODUCTO AL STOCK
 
-    # REMOVER ESTE CAMPO
     STATUS = models.CharField(
         max_length=100,
         choices=(
@@ -354,13 +362,11 @@ class ProductoSalidaRuta(models.Model):
 
 # No tiene el precio, pero accede a ellos mediante su hermano PrecioCliente.
 class ClienteSalidaRuta(models.Model):
-    # Si la salida ruta se cancela los ClienteSalidaRuta se eliminan
+    # Si la salida ruta se cancela los ClienteSalidaRuta se cancelan
     SALIDA_RUTA = models.ForeignKey(
         SalidaRuta, on_delete=models.CASCADE, related_name="clientes"
     )
-    # Aqui no uso el objeto cliente porque no ocupo acceder a el para nada. Por ejemplo, no hay que regresar clientes al sotck. Con su nombre me basta (NO ES CORRECTO)
-    # LA RAZON POR LA QUE USO EL OBJETO CLIENTE Y NO UN NOMBRE, ES PORQUE EL TENER A FOREIG KEY AL OBJETO CLIENTE ME PERMITE ACCEDER A LOS HERMANOS DE CLIENTESALIDARUTA, ES DECIR, ME PERMITE ACCEDER A LOS PRECIOSCLIENTE
-    # LO OTRO QUE QUERÍAS HACER NO FUNCIONARIA SI CAMBIAN EL PRECIO DEL CLIENTE Y LA SALIDARUTA YA SE REGISTRO CON PRECIOS ANTERIORES
+
     CLIENTE_RUTA = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True)
     CLIENTE_NOMBRE = models.CharField(max_length=200)
     STATUS = models.CharField(
@@ -376,6 +382,8 @@ class ClienteSalidaRuta(models.Model):
         return f"{self.SALIDA_RUTA}, {self.CLIENTE_RUTA}"
 
 
+# Las devoluciones tienen que ser devoluciones reales, si el repartidor regresa para hacer una recarga no se va a devolver todo lo que se cargo, en todo caso la salida ruta debe poder ser actualizada para agregar mas productos (o clientes). Esto implicaria crear una vista que permita actualizar la salida ruta y crear mas productos salida ruta.
+# En el frontend esto va a ser una recarga de salida ruta
 class DevolucionSalidaRuta(models.Model):
     REPARTIDOR = models.CharField(max_length=200)
     ATIENDE = models.CharField(max_length=200)

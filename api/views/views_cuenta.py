@@ -10,15 +10,14 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AnonymousUser
 
 
-@api_view(["GET"])
-def cuenta_detail(request):
-    # the first line of code retrieves the User object associated with the current request by accessing the user attribute of the request object. The request.user attribute is automatically populated by Django's authentication middleware, which verifies the user's credentials based on the authentication backend that is configured in the Django settings.
-    user = request.user
+# @api_view(["GET"])
+# def cuenta_detail(request):
+#     # the first line of code retrieves the User object associated with the current request by accessing the user attribute of the request object. The request.user attribute is automatically populated by Django's authentication middleware, which verifies the user's credentials based on the authentication backend that is configured in the Django settings.
+#     user = request.user
 
-    # Quiza cuando use esta informacion en lugar del localStorage. Debo cambiar el serializer para obtener tambien el token
-    serializer = UserSerializer(user)
+#     serializer = UserSerializer(user)
 
-    return Response(serializer.data)
+#     return Response(serializer.data)
 
 
 @api_view(["PUT"])
