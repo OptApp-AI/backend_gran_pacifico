@@ -60,7 +60,7 @@ def cliente_list(request):
     # prefetch_related: many to many fields and reverse relationships
 
     precios_cliente_prefetch = Prefetch(
-        "precios_clientes", queryset=PrecioCliente.objects.select_related("PRODUCTO")
+        "precios_cliente", queryset=PrecioCliente.objects.select_related("PRODUCTO")
     )
 
     queryset = (
