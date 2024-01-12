@@ -40,7 +40,7 @@ def crear_producto(request):
         precios_clientes_instances = [
             PrecioCliente(
                 # CLIENTE_id=cliente.id,
-                CLIENTE_ID=cliente_id,
+                CLIENTE_id=cliente_id,
                 PRODUCTO=producto,
                 PRECIO=producto.PRECIO
                 # CLIENTE=cliente, PRODUCTO=producto, PRECIO=producto.PRECIO

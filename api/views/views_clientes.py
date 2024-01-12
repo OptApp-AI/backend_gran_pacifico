@@ -60,7 +60,7 @@ def cliente_list(request):
     # prefetch_related: many to many fields and reverse relationships
 
     precios_cliente_prefetch = Prefetch(
-        "precios_clientes", queryset=PrecioCliente.objects.select_related("PRODUCTO")
+        "precios_cliente", queryset=PrecioCliente.objects.select_related("PRODUCTO")
     )
 
     queryset = (
@@ -154,8 +154,8 @@ def cliente_venta_lista(request):
         queryset = (
             Cliente.objects.filter(NOMBRE__icontains=nombre)
             .only("id", "NOMBRE")
-            .prefetch_related(precios_cliente_prefetch)[:5]
             .order_by("NOMBRE")
+            .prefetch_related(precios_cliente_prefetch)[:5]
         )
         if not queryset.exists():
             queryset = (
