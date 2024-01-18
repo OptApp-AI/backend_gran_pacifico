@@ -5,18 +5,61 @@ from django.db import transaction
 
 from api.models import AjusteInventario, Producto
 from api.serializers import AjusteInventarioSerializer
+from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+from .utilis.ventas import filter_by_date
 
 
 # I need to add pagination and filtering to this view
 @api_view(["GET"])
 def ajuste_inventario_list(request):
-    ajuste_inventarios = (
-        AjusteInventario.objects.select_related("PRODUCTO").all().order_by("-id")
-    )
+    filtrar_por = request.GET.get("filtrarpor", "")
+    buscar = request.GET.get("buscar", "")
+    fechainicio = request.GET.get("fechainicio", "")
+    fechafinal = request.GET.get("fechafinal", "")
+    ordenar_por = request.GET.get("ordenarpor", "")
+    page = request.GET.get("page", "")
 
-    serializer = AjusteInventarioSerializer(ajuste_inventarios, many=True)
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = AjusteInventario.objects.select_related("PRODUCTO").all().filter(filters)
+
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
+
+    ordering_dict = {
+        "cajero": "CAJERO",
+        "bodega": "BODEGA",
+        "administrador": "ADMINISTRADOR",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+        "vendedor": "VENDEDOR",
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
+
+    # Pagination
+    paginator = Paginator(queryset, 10)
+
+    try:
+        ajuste_inventario = paginator.page(page)
+    except PageNotAnInteger:
+        page = 1
+        ajuste_inventario = paginator.page(page)
+    except EmptyPage:
+        page = paginator.num_pages
+        ajuste_inventario = paginator.page(page)
+
+    serializer = AjusteInventarioSerializer(queryset, many=True)
+
+    response_data = {
+        "ajustes_inventario": serializer.data,
+        "page": page,
+        "pages": paginator.num_pages,
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

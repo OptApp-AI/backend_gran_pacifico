@@ -70,6 +70,8 @@ class AjusteInventario(models.Model):
         default="PENDIENTE",
     )
 
+    FECHA = models.DateTimeField(auto_now=True)
+
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
 
     def save(self, *args, **kwargs):
