@@ -6,13 +6,14 @@ from django.db.models import Prefetch
 
 
 from api.models import (
+    ProductoVenta,
     SalidaRuta,
     ProductoSalidaRuta,
     ClienteSalidaRuta,
     Cliente,
     Producto,
 )
-from api.serializers import SalidaRutaSerializer
+from api.serializers import SalidaRutaSerializer, VentaSerializer
 
 
 @api_view(["GET"])
@@ -202,3 +203,67 @@ def crear_salida_ruta(request):
     # for cliente_salida in salida_ruta.clientes.all():
     #     cliente_salida.STATUS = "CANCELADO"
     #     cliente_salida.save()
+
+
+@api_view(["POST"])
+@transaction.atomic
+def crear_venta_salida_ruta(request, pk):
+    data = request.data
+
+    print("SALIA RUTA PK", pk)
+    print("DATA", data)
+
+    serializer = VentaSerializer(data=data)
+    if serializer.is_valid():
+        venta = serializer.save()
+        productos_venta = data["productosVenta"]
+        productos_ids = [
+            producto_venta["productoId"] for producto_venta in productos_venta
+        ]
+        producto_instances = Producto.objects.filter(id__in=productos_ids)
+        producto_cantidad_venta_map = {
+            producto_venta["productoId"]: producto_venta["cantidadVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_precio_venta_map = {
+            producto_venta["productoId"]: producto_venta["precioVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_venta_instances = []
+        for producto in producto_instances:
+            nuevo_producto_venta = ProductoVenta(
+                VENTA=venta,
+                PRODUCTO=producto,
+                NOMBRE_PRODUCTO=producto.NOMBRE,
+                CANTIDAD_VENTA=producto_cantidad_venta_map[producto.id],
+                PRECIO_VENTA=producto_precio_venta_map[producto.id],
+            )
+            producto_venta_instances.append(nuevo_producto_venta)
+
+        Producto.objects.bulk_update(producto_instances, ["CANTIDAD"])
+        ProductoVenta.objects.bulk_create(producto_venta_instances)
+
+        # Actualizar cliente salida ruta
+        clienteSalidaRuta = ClienteSalidaRuta.objects.get(
+            SALIDA_RUTA=pk, CLIENTE_RUTA=data.get("CLIENTE")
+        )
+        clienteSalidaRuta.STATUS = "VISITADO"
+        clienteSalidaRuta.save()
+
+        # Actualizar productos
+
+        for producto_id in productos_ids:
+            print("producto_id", producto_id)
+            product_salida_ruta = ProductoSalidaRuta.objects.get(
+                SALIDA_RUTA=pk, PRODUCTO_RUTA=producto_id
+            )
+
+            product_salida_ruta.CANTIDAD_DISPONIBLE -= producto_cantidad_venta_map[
+                producto_id
+            ]
+            product_salida_ruta.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    print(serializer.errors)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

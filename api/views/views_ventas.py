@@ -182,7 +182,7 @@ def crear_venta(request):
                 PRECIO_VENTA=producto_precio_venta_map[producto.id],
             )
             producto_venta_instances.append(nuevo_producto_venta)
-            # Aqui tampo quiero descontar cantidad del producto si la venta es en salida ruta, porque el producto ya fue descontado del inventario al generar la salida ruta
+            # Aqui tampoco quiero descontar cantidad del producto si la venta es en salida ruta, porque el producto ya fue descontado del inventario al generar la salida ruta
             if data["STATUS"] == "REALIZADO":
                 producto.CANTIDAD -= nuevo_producto_venta.CANTIDAD_VENTA
         Producto.objects.bulk_update(producto_instances, ["CANTIDAD"])
