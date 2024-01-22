@@ -9,4 +9,9 @@ urlpatterns = [
     path(
         "crear-venta-salida-ruta/<str:pk>/", views_salida_ruta.crear_venta_salida_ruta
     ),
+    path(
+        "devolver-producto-salida-ruta/<str:pk>/",
+        views_salida_ruta.devolver_producto_salida_ruta,
+    ),
+    path("realizar-aviso-visita/<str:pk>/", views_salida_ruta.realizar_aviso_visita),
 ]

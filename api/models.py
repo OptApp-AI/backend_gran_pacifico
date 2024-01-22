@@ -354,7 +354,6 @@ class ProductoSalidaRuta(models.Model):
         choices=(
             ("CARGADO", "CARGADO"),
             ("VENDIDO", "VENDIDO"),
-            ("CANCELADO", "CANCELADO"),
         ),
     )
 
@@ -376,7 +375,6 @@ class ClienteSalidaRuta(models.Model):
         choices=(
             ("PENDIENTE", "PENDIENTE"),
             ("VISITADO", "VISITADO"),
-            ("CANCELADO", "CANCELADO"),
         ),
     )
 
@@ -393,12 +391,14 @@ class DevolucionSalidaRuta(models.Model):
     SALIDA_RUTA = models.ForeignKey(
         SalidaRuta, on_delete=models.CASCADE, related_name="salida_ruta_devoluciones"
     )
-    PRODUCTO_DEVOLUCION = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    PRODUCTO_DEVOLUCION = models.ForeignKey(Producto, on_delete=models.SET_NULL, null = True)
     PRODUCTO_NOMBRE = models.CharField(max_length=200)
     CATIDAD_DEVOLUCION = models.IntegerField(validators=[MinValueValidator(0)])
     # La cajera realiza la devolución, pero mientras el administrador no la autorice, el STATUS permanece como pendiente y la cajera no puede realizar el corte
     STATUS = models.CharField(
-        max_length=200, choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE"))
+        max_length=200,
+        choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
+        default="PENDIENTE",
     )
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
 

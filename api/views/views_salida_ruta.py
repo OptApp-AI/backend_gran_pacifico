@@ -13,7 +13,11 @@ from api.models import (
     Cliente,
     Producto,
 )
-from api.serializers import SalidaRutaSerializer, VentaSerializer
+from api.serializers import (
+    DevolucionSalidaRutaSerializer,
+    SalidaRutaSerializer,
+    VentaSerializer,
+)
 
 
 @api_view(["GET"])
@@ -189,6 +193,214 @@ def crear_salida_ruta(request):
     print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+@api_view(["POST"])
+@transaction.atomic
+def crear_venta_salida_ruta(request, pk):
+    data = request.data
+
+    # 1. Valida data for creating venta
+    serializer = VentaSerializer(data=data)
+    if serializer.is_valid():
+        venta = serializer.save()
+
+        # 2. Create ProductoVenta instances
+        productos_venta = data["productosVenta"]
+        productos_ids = [
+            producto_venta["PRODUCTO_RUTA"] for producto_venta in productos_venta
+        ]
+        producto_instances = Producto.objects.filter(id__in=productos_ids).only(
+            "id", "NOMBRE"
+        )
+        producto_cantidad_venta_map = {
+            producto_venta["PRODUCTO_RUTA"]: producto_venta["cantidadVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_precio_venta_map = {
+            producto_venta["PRODUCTO_RUTA"]: producto_venta["precioVenta"]
+            for producto_venta in productos_venta
+        }
+        producto_venta_instances = [
+            ProductoVenta(
+                VENTA=venta,
+                PRODUCTO=producto,
+                NOMBRE_PRODUCTO=producto.NOMBRE,
+                CANTIDAD_VENTA=producto_cantidad_venta_map[producto.id],
+                PRECIO_VENTA=producto_precio_venta_map[producto.id],
+            )
+            for producto in producto_instances
+        ]
+
+        ProductoVenta.objects.bulk_create(producto_venta_instances)
+
+        # 3. Actualizar cliente salida ruta
+        ClienteSalidaRuta.objects.filter(
+            SALIDA_RUTA=pk, CLIENTE_RUTA=data.get("CLIENTE")
+        ).update(STATUS="VISITADO")
+
+        # 4. Actualizar productos salida ruta
+
+        productos_salida_ruta_instances = ProductoSalidaRuta.objects.filter(
+            SALIDA_RUTA=pk, PRODUCTO_RUTA__in=productos_ids
+        )
+        for product_salida_ruta in productos_salida_ruta_instances:
+            product_salida_ruta.CANTIDAD_DISPONIBLE -= producto_cantidad_venta_map[
+                product_salida_ruta.PRODUCTO_RUTA.id
+            ]
+
+            if product_salida_ruta.CANTIDAD_DISPONIBLE == 0:
+                product_salida_ruta.STATUS = "VENDIDO"
+
+        ProductoSalidaRuta.objects.bulk_update(
+            productos_salida_ruta_instances, ["CANTIDAD_DISPONIBLE", "STATUS"]
+        )
+
+        # Obtener todos los  productos de la salida ruta
+        salida_ruta = SalidaRuta.objects.get(id=pk)
+        clientes_salida_ruta = ClienteSalidaRuta.objects.filter(SALIDA_RUTA=salida_ruta)
+        productos_salida_ruta = ProductoSalidaRuta.objects.filter(
+            SALIDA_RUTA=salida_ruta
+        )
+
+        # Verificar si el STATUS de todos los clientes salida ruta es VISITADO
+        all_clientes_visited = all(
+            cliente.STATUS == "VISITADO" for cliente in clientes_salida_ruta
+        )
+
+        # Verificar si el STATUS de todos los productos salida ruta es VENDIDO
+        all_productos_sold = all(
+            producto.STATUS == "VENDIDO" for producto in productos_salida_ruta
+        )
+
+        # Si esto se cumple cambia el STATUS de salida ruta a realizado
+        if all_productos_sold and all_clientes_visited:
+            salida_ruta.STATUS = "REALIZADO"
+        # Si no se cumple verifica si el STATUS de salida ruta es PENDIENTE
+        elif salida_ruta.STATUS == "PENDIENTE":
+            # Si esto se cumple cambia el STATUS de salida ruta de PROGRESO
+            salida_ruta.STATUS = "PROGRESO"
+
+        salida_ruta.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+@transaction.atomic
+def devolver_producto_salida_ruta(request, pk):
+    salida_ruta = SalidaRuta.objects.get(id=pk)
+
+    try:
+        assert salida_ruta.STATUS == "PROGRESO"
+    except AssertionError:
+        return Response(
+            {
+                "message": "El STATUS de salida ruta debe ser PROGRESO para poder realizar una devolución"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    data = request.data
+
+    # 1. Crear devolucion
+    serializer = DevolucionSalidaRutaSerializer(data=data)
+
+    if serializer.is_valid():
+        serializer.save()
+
+        producto_salida_ruta = ProductoSalidaRuta.objects.get(
+            id=data.get("PRODUCTO_DEVOLUCION"), SALIDA_RUTA=data.get("SALIDA_RUTA")
+        )
+
+        producto_salida_ruta.CANTIDAD_DISPONIBLE -= data.get("CATIDAD_DEVOLUCION")
+
+        # Revisar si con los productos devueltos ya no hay mas productos disponibles
+        if producto_salida_ruta.CANTIDAD_DISPONIBLE == 0:
+            producto_salida_ruta.STATUS = "VENDIDO"
+
+        producto_salida_ruta.save()
+
+        # Obtener todos los  productos de la salida ruta
+
+        productos_salida_ruta = ProductoSalidaRuta.objects.filter(
+            SALIDA_RUTA=salida_ruta
+        )
+
+        # Verificar si el STATUS de todos los productos salida ruta es VENDIDO
+        all_productos_sold = all(
+            producto.STATUS == "VENDIDO" for producto in productos_salida_ruta
+        )
+
+        # Si esto se cumple cambia el STATUS de salida ruta a realizado
+        if all_productos_sold:
+            salida_ruta.STATUS = "REALIZADO"
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    print(serializer.errors)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["PUT"])
+@transaction.atomic
+def realizar_aviso_visita(request, pk):
+    salida_ruta = SalidaRuta.objects.get(id=pk)
+
+    try:
+        assert salida_ruta.STATUS == "PROGRESO"
+    except AssertionError:
+        return Response(
+            {
+                "message": "El STATUS de salida ruta debe ser PROGRESO para poder realizar un aviso de visita"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    data = request.data
+
+    print("DATA", data)
+    print("PK", pk)
+
+    try:
+        cliente_salida_ruta = ClienteSalidaRuta.objects.get(
+            id=data.get("CLIENTE_SALIDA_RUTA")
+        )
+    except ClienteSalidaRuta.DoesNotExist:
+        return Response(
+            {"message": "Cliente salida ruta con el id dado no existe"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        assert cliente_salida_ruta.STATUS == "PENDIENTE"
+    except AssertionError:
+        return Response(
+            {"message": "Cliente salida ruta debe tener STATUS de PENDIENTE"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    cliente_salida_ruta.STATUS = "VISITADO"
+
+    cliente_salida_ruta.save()
+
+    clientes_salida_ruta = ClienteSalidaRuta.objects.filter(SALIDA_RUTA=salida_ruta)
+
+    # Verificar si el STATUS de todos los clientes salida ruta es VISITADO
+    all_clientes_visited = all(
+        cliente.STATUS == "VISITADO" for cliente in clientes_salida_ruta
+    )
+
+    # Si esto se cumple cambia el STATUS de salida ruta a realizado
+    if all_clientes_visited:
+        salida_ruta.STATUS = "REALIZADO"
+
+    return Response(
+        {"message": "La salida ruta ha sido actualizada exitosamente"},
+        status=status.HTTP_200_OK,
+    )
+
     # # Cancel all associated ProductoSalidaRuta instances and revert stock
     # for producto_salida in salida_ruta.productos.all():
     #     producto_salida.STATUS = "CANCELADO"
@@ -203,67 +415,3 @@ def crear_salida_ruta(request):
     # for cliente_salida in salida_ruta.clientes.all():
     #     cliente_salida.STATUS = "CANCELADO"
     #     cliente_salida.save()
-
-
-@api_view(["POST"])
-@transaction.atomic
-def crear_venta_salida_ruta(request, pk):
-    data = request.data
-
-    print("SALIA RUTA PK", pk)
-    print("DATA", data)
-
-    serializer = VentaSerializer(data=data)
-    if serializer.is_valid():
-        venta = serializer.save()
-        productos_venta = data["productosVenta"]
-        productos_ids = [
-            producto_venta["productoId"] for producto_venta in productos_venta
-        ]
-        producto_instances = Producto.objects.filter(id__in=productos_ids)
-        producto_cantidad_venta_map = {
-            producto_venta["productoId"]: producto_venta["cantidadVenta"]
-            for producto_venta in productos_venta
-        }
-        producto_precio_venta_map = {
-            producto_venta["productoId"]: producto_venta["precioVenta"]
-            for producto_venta in productos_venta
-        }
-        producto_venta_instances = []
-        for producto in producto_instances:
-            nuevo_producto_venta = ProductoVenta(
-                VENTA=venta,
-                PRODUCTO=producto,
-                NOMBRE_PRODUCTO=producto.NOMBRE,
-                CANTIDAD_VENTA=producto_cantidad_venta_map[producto.id],
-                PRECIO_VENTA=producto_precio_venta_map[producto.id],
-            )
-            producto_venta_instances.append(nuevo_producto_venta)
-
-        Producto.objects.bulk_update(producto_instances, ["CANTIDAD"])
-        ProductoVenta.objects.bulk_create(producto_venta_instances)
-
-        # Actualizar cliente salida ruta
-        clienteSalidaRuta = ClienteSalidaRuta.objects.get(
-            SALIDA_RUTA=pk, CLIENTE_RUTA=data.get("CLIENTE")
-        )
-        clienteSalidaRuta.STATUS = "VISITADO"
-        clienteSalidaRuta.save()
-
-        # Actualizar productos
-
-        for producto_id in productos_ids:
-            print("producto_id", producto_id)
-            product_salida_ruta = ProductoSalidaRuta.objects.get(
-                SALIDA_RUTA=pk, PRODUCTO_RUTA=producto_id
-            )
-
-            product_salida_ruta.CANTIDAD_DISPONIBLE -= producto_cantidad_venta_map[
-                producto_id
-            ]
-            product_salida_ruta.save()
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    print(serializer.errors)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

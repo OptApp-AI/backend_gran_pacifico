@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import (
+    DevolucionSalidaRuta,
     Empleado,
     # Ventas
     Direccion,
@@ -325,4 +326,10 @@ class SalidaRutaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SalidaRuta
+        fields = "__all__"
+
+
+class DevolucionSalidaRutaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DevolucionSalidaRuta
         fields = "__all__"
