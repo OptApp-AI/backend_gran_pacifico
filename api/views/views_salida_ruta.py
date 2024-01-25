@@ -3,7 +3,8 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 from django.db import transaction  # Import the transaction module
 from django.db.models import Prefetch
-
+from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 from api.models import (
     ProductoVenta,
@@ -12,16 +13,35 @@ from api.models import (
     ClienteSalidaRuta,
     Cliente,
     Producto,
+    DevolucionSalidaRuta,
 )
 from api.serializers import (
     DevolucionSalidaRutaSerializer,
+    ProductoSalidaRutaSerializer,
     SalidaRutaSerializer,
     VentaSerializer,
 )
+from api.views.utilis.salida_ruta import (
+    filter_by_date,
+    verificar_salida_ruta_completada,
+)
+from django.db.models import Case, When, Value, IntegerField
 
 
 @api_view(["GET"])
 def salida_ruta_list(request):
+    filtrar_por = request.GET.get("filtrarpor", "")
+    buscar = request.GET.get("buscar", "")
+    fechainicio = request.GET.get("fechainicio", "")
+    fechafinal = request.GET.get("fechafinal", "")
+    ordenar_por = request.GET.get("ordenarpor", "")
+    page = request.GET.get("page", "")
+    role = request.GET.get("role", "")
+
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
+
     productos_salida_ruta_prefetch = Prefetch(
         "productos", queryset=ProductoSalidaRuta.objects.select_related("PRODUCTO_RUTA")
     )
@@ -32,13 +52,44 @@ def salida_ruta_list(request):
     queryset = (
         SalidaRuta.objects.select_related("RUTA", "REPARTIDOR")
         .prefetch_related(productos_salida_ruta_prefetch, clientes_salida_ruta_prefetch)
-        .all()
-        .order_by("-id")
+        .filter(filters)
     )
 
-    serializer = SalidaRutaSerializer(queryset, many=True)
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
-    return Response(serializer.data)
+    # Chech if the user is a delivery man
+    if role == "REPARTIDOR":
+        queryset = queryset.filter(REPARTIDOR__USUARIO__username=request.user.username)
+
+    ordering_dict = {
+        "atiende": "ATIENDE",
+        "repartidor": "REPARTIDOR_NOMBRE",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
+
+    # Pagination
+    paginator = Paginator(queryset, 10)
+
+    try:
+        salida_rutas = paginator.page(page)
+    except PageNotAnInteger:
+        page = 1
+        salida_rutas = paginator.page(page)
+    except EmptyPage:
+        page = paginator.num_pages
+        salida_rutas = paginator.page(page)
+
+    serializer = SalidaRutaSerializer(salida_rutas, many=True)
+
+    response_data = {
+        "salida_rutas": serializer.data,
+        "page": page,
+        "pages": paginator.num_pages,
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -255,32 +306,9 @@ def crear_venta_salida_ruta(request, pk):
             productos_salida_ruta_instances, ["CANTIDAD_DISPONIBLE", "STATUS"]
         )
 
-        # Obtener todos los  productos de la salida ruta
         salida_ruta = SalidaRuta.objects.get(id=pk)
-        clientes_salida_ruta = ClienteSalidaRuta.objects.filter(SALIDA_RUTA=salida_ruta)
-        productos_salida_ruta = ProductoSalidaRuta.objects.filter(
-            SALIDA_RUTA=salida_ruta
-        )
 
-        # Verificar si el STATUS de todos los clientes salida ruta es VISITADO
-        all_clientes_visited = all(
-            cliente.STATUS == "VISITADO" for cliente in clientes_salida_ruta
-        )
-
-        # Verificar si el STATUS de todos los productos salida ruta es VENDIDO
-        all_productos_sold = all(
-            producto.STATUS == "VENDIDO" for producto in productos_salida_ruta
-        )
-
-        # Si esto se cumple cambia el STATUS de salida ruta a realizado
-        if all_productos_sold and all_clientes_visited:
-            salida_ruta.STATUS = "REALIZADO"
-        # Si no se cumple verifica si el STATUS de salida ruta es PENDIENTE
-        elif salida_ruta.STATUS == "PENDIENTE":
-            # Si esto se cumple cambia el STATUS de salida ruta de PROGRESO
-            salida_ruta.STATUS = "PROGRESO"
-
-        salida_ruta.save()
+        verificar_salida_ruta_completada(salida_ruta)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -310,11 +338,18 @@ def devolver_producto_salida_ruta(request, pk):
     if serializer.is_valid():
         serializer.save()
 
+        # 2. Devolver producto al almacen
         producto_salida_ruta = ProductoSalidaRuta.objects.get(
-            id=data.get("PRODUCTO_DEVOLUCION"), SALIDA_RUTA=data.get("SALIDA_RUTA")
+            id=data.get("PRODUCTO_SALIDA_RUTA"),
         )
 
-        producto_salida_ruta.CANTIDAD_DISPONIBLE -= data.get("CATIDAD_DEVOLUCION")
+        producto_salida_ruta.CANTIDAD_DISPONIBLE -= data.get("CANTIDAD_DEVOLUCION")
+
+        producto = Producto.objects.get(id=data.get("PRODUCTO_DEVOLUCION"))
+
+        producto.CANTIDAD += data.get("CANTIDAD_DEVOLUCION")
+
+        producto.save()
 
         # Revisar si con los productos devueltos ya no hay mas productos disponibles
         if producto_salida_ruta.CANTIDAD_DISPONIBLE == 0:
@@ -324,18 +359,7 @@ def devolver_producto_salida_ruta(request, pk):
 
         # Obtener todos los  productos de la salida ruta
 
-        productos_salida_ruta = ProductoSalidaRuta.objects.filter(
-            SALIDA_RUTA=salida_ruta
-        )
-
-        # Verificar si el STATUS de todos los productos salida ruta es VENDIDO
-        all_productos_sold = all(
-            producto.STATUS == "VENDIDO" for producto in productos_salida_ruta
-        )
-
-        # Si esto se cumple cambia el STATUS de salida ruta a realizado
-        if all_productos_sold:
-            salida_ruta.STATUS = "REALIZADO"
+        verificar_salida_ruta_completada(salida_ruta)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -360,9 +384,6 @@ def realizar_aviso_visita(request, pk):
 
     data = request.data
 
-    print("DATA", data)
-    print("PK", pk)
-
     try:
         cliente_salida_ruta = ClienteSalidaRuta.objects.get(
             id=data.get("CLIENTE_SALIDA_RUTA")
@@ -385,33 +406,170 @@ def realizar_aviso_visita(request, pk):
 
     cliente_salida_ruta.save()
 
-    clientes_salida_ruta = ClienteSalidaRuta.objects.filter(SALIDA_RUTA=salida_ruta)
-
-    # Verificar si el STATUS de todos los clientes salida ruta es VISITADO
-    all_clientes_visited = all(
-        cliente.STATUS == "VISITADO" for cliente in clientes_salida_ruta
-    )
-
-    # Si esto se cumple cambia el STATUS de salida ruta a realizado
-    if all_clientes_visited:
-        salida_ruta.STATUS = "REALIZADO"
+    verificar_salida_ruta_completada(salida_ruta)
 
     return Response(
         {"message": "La salida ruta ha sido actualizada exitosamente"},
         status=status.HTTP_200_OK,
     )
 
-    # # Cancel all associated ProductoSalidaRuta instances and revert stock
-    # for producto_salida in salida_ruta.productos.all():
-    #     producto_salida.STATUS = "CANCELADO"
-    #     producto_salida.save()
 
-    #     # Revert stock
-    #     producto = producto_salida.PRODUCTO_RUTA
-    #     producto.CANTIDAD += producto_salida.CANTIDAD_RUTA
-    #     producto.save()
+@api_view(["GET"])
+def devolucion_list(request):
+    filtrar_por = request.GET.get("filtrarpor", "")
+    buscar = request.GET.get("buscar", "")
+    fechainicio = request.GET.get("fechainicio", "")
+    fechafinal = request.GET.get("fechafinal", "")
+    ordenar_por = request.GET.get("ordenarpor", "")
+    page = request.GET.get("page", "")
 
-    # # Cancel all associated ClientesSalidaRuta instances
-    # for cliente_salida in salida_ruta.clientes.all():
-    #     cliente_salida.STATUS = "CANCELADO"
-    #     cliente_salida.save()
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
+
+    queryset = DevolucionSalidaRuta.objects.select_related(
+        "SALIDA_RUTA", "PRODUCTO_DEVOLUCION"
+    ).filter(filters)
+
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
+
+    # The problem is in here. I want the rows without administrador (null) to go last when ordering, not first
+    ordering_dict = {
+        "atiende": "ATIENDE",
+        "repartidor": "REPARTIDOR",
+        "administrador": "ADMINISTRADOR",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+    }
+
+    if ordenar_por == "administrador":
+        # Rows with 'administrador' as an empty string will be ordered last
+        queryset = queryset.annotate(
+            admin_order=Case(
+                When(ADMINISTRADOR="", then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
+        ).order_by("admin_order", ordering_dict[ordenar_por])
+    else:
+        queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
+
+    # Pagination
+    paginator = Paginator(queryset, 10)
+
+    try:
+        devoluciones = paginator.page(page)
+    except PageNotAnInteger:
+        page = 1
+        devoluciones = paginator.page(page)
+    except EmptyPage:
+        page = paginator.num_pages
+        devoluciones = paginator.page(page)
+
+    serializer = DevolucionSalidaRutaSerializer(devoluciones, many=True)
+
+    response_data = {
+        "devoluciones": serializer.data,
+        "page": page,
+        "pages": paginator.num_pages,
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET", "PUT"])
+def devolucion_detalles(request, pk):
+    try:
+        devolucion = DevolucionSalidaRuta.objects.get(id=pk)
+
+    except DevolucionSalidaRuta.DoesNotExist:
+        return Response(
+            {"message": "Devolución con el id dado no existe"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if request.method == "GET":
+        serializer = DevolucionSalidaRutaSerializer(devolucion)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    elif request.method == "PUT":
+        data = request.data
+
+        devolucion.STATUS = data.get("STATUS")
+        devolucion.ADMINISTRADOR = data.get("ADMINISTRADOR")
+        devolucion.save()
+
+        return Response(
+            {"message": "Devolución ha sido actualizada exitosamente"},
+            status=status.HTTP_200_OK,
+        )
+
+
+@api_view(["PUT"])
+@transaction.atomic
+def realizar_recarga_salida_ruta(request, pk):
+    data = request.data
+
+    print("DATA", data)
+
+    producto_id = data.get("PRODUCTO_RUTA")
+    cantidad = data.get("CANTIDAD_RECARGA", 0)
+
+    # Validating the input
+    if not producto_id or cantidad <= 0:
+        return Response(
+            {
+                "message": "Datos invalidos: PRODUCTO_RUTA o CANTIDAD_RECARGA no proporcionados o incorrectos"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 1. Remover producto de almacen
+    try:
+        producto = Producto.objects.get(id=producto_id)
+
+        if cantidad > producto.CANTIDAD:
+            return Response(
+                {
+                    "message": "Cantidad de recarga excede la cantidad disponible en almacen"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        producto.CANTIDAD -= cantidad
+        producto.save()
+    except Producto.DoesNotExist:
+        return Response(
+            {"message": "Producto con el id dado no existe"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # 2. Agregar producto a salida ruta
+    try:
+        producto_salida_ruta = ProductoSalidaRuta.objects.get(
+            SALIDA_RUTA_id=pk, PRODUCTO_RUTA_id=producto_id
+        )
+        producto_salida_ruta.CANTIDAD_DISPONIBLE = data.get(
+            "CANTIDAD_DISPONIBLE", producto_salida_ruta.CANTIDAD_DISPONIBLE
+        )
+        producto_salida_ruta.CANTIDAD_RUTA = data.get(
+            "CANTIDAD_RUTA", producto_salida_ruta.CANTIDAD_RUTA
+        )
+        producto_salida_ruta.STATUS = data.get("STATUS", producto_salida_ruta.STATUS)
+        producto_salida_ruta.save()
+    except ProductoSalidaRuta.DoesNotExist:
+        serializer = ProductoSalidaRutaSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Salida ruta creada exitosamente"},
+                status=status.HTTP_200_OK,
+            )
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(
+        {"message": "Salida ruta actualizada exitosamente"},
+        status=status.HTTP_200_OK,
+    )

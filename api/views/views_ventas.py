@@ -252,7 +252,7 @@ def modificar_venta_put(request, venta):
 
     for producto_venta in productos_venta:
         # This is why i need the foreign key relationship from producto_venta to producto
-        producto = producto_venta.producto
+        producto = producto_venta.PRODUCTO
         producto_cambios = {"ANTES": producto.CANTIDAD}
 
         cantidad_venta = producto_venta.CANTIDAD_VENTA

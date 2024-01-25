@@ -15,6 +15,7 @@ from .models import (
     ClienteSalidaRuta,
     ProductoSalidaRuta,
     AjusteInventario,
+    DevolucionSalidaRuta,
 )
 
 
@@ -55,3 +56,4 @@ admin.site.register(SalidaRuta)
 admin.site.register(ClienteSalidaRuta)
 admin.site.register(ProductoSalidaRuta)
 admin.site.register(AjusteInventario)
+admin.site.register(DevolucionSalidaRuta)

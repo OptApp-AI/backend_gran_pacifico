@@ -14,6 +14,16 @@ class Empleado(models.Model):
 
     IMAGEN = models.ImageField(upload_to="imagenes/empleados", null=True, blank=True)
 
+    ROLE = models.CharField(
+        max_length=255,
+        choices=(
+            ("GERENTE", "GERENTE"),
+            ("CAJERO", "CAJERO"),
+            ("REPARTIDOR", "REPARTIDOR"),
+        ),
+        default="CAJERO",
+    )
+
     def __str__(self):
         return f"Empleado con usuario: {self.USUARIO.username}"
 
@@ -344,8 +354,8 @@ class ProductoSalidaRuta(models.Model):
     # Aqui si usamos el objeto producto porque sera necesario acceder a este para hacer las devoluciones y tambien para cancelar salida ruta
     PRODUCTO_RUTA = models.ForeignKey(Producto, on_delete=models.CASCADE)
     PRODUCTO_NOMBRE = models.CharField(max_length=200)
-    CANTIDAD_RUTA = models.IntegerField(validators=[MinValueValidator(0)])
-    CANTIDAD_DISPONIBLE = models.IntegerField(validators=[MinValueValidator(0)])
+    CANTIDAD_RUTA = models.FloatField(validators=[MinValueValidator(0)])
+    CANTIDAD_DISPONIBLE = models.FloatField(validators=[MinValueValidator(0)])
     # SI CANCELAN LA SALIDARUTA LOS PRODUCTOS SE CANCELAN TAMBIEN. Una devolucion tambien ocasiona que los productos se cancelen
     # CANCELAR UN PRODUCTO ES LO QUE USARE PARA REGRESAR EL PRODUCTO AL STOCK
 
@@ -391,9 +401,11 @@ class DevolucionSalidaRuta(models.Model):
     SALIDA_RUTA = models.ForeignKey(
         SalidaRuta, on_delete=models.CASCADE, related_name="salida_ruta_devoluciones"
     )
-    PRODUCTO_DEVOLUCION = models.ForeignKey(Producto, on_delete=models.SET_NULL, null = True)
+    PRODUCTO_DEVOLUCION = models.ForeignKey(
+        Producto, on_delete=models.SET_NULL, null=True
+    )
     PRODUCTO_NOMBRE = models.CharField(max_length=200)
-    CATIDAD_DEVOLUCION = models.IntegerField(validators=[MinValueValidator(0)])
+    CANTIDAD_DEVOLUCION = models.FloatField(validators=[MinValueValidator(0)])
     # La cajera realiza la devolución, pero mientras el administrador no la autorice, el STATUS permanece como pendiente y la cajera no puede realizar el corte
     STATUS = models.CharField(
         max_length=200,
@@ -401,6 +413,8 @@ class DevolucionSalidaRuta(models.Model):
         default="PENDIENTE",
     )
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
+
+    FECHA = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.SALIDA_RUTA}, {self.CATIDAD_DEVOLUCION}"

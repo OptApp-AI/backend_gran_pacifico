@@ -25,7 +25,7 @@ def ajuste_inventario_list(request):
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
-    queryset = AjusteInventario.objects.select_related("PRODUCTO").all().filter(filters)
+    queryset = AjusteInventario.objects.select_related("PRODUCTO").filter(filters)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -51,7 +51,7 @@ def ajuste_inventario_list(request):
         page = paginator.num_pages
         ajuste_inventario = paginator.page(page)
 
-    serializer = AjusteInventarioSerializer(queryset, many=True)
+    serializer = AjusteInventarioSerializer(ajuste_inventario, many=True)
 
     response_data = {
         "ajustes_inventario": serializer.data,

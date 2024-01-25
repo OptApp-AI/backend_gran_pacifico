@@ -27,12 +27,13 @@ from django.contrib.auth.models import User
 class EmpleadoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empleado
-        fields = ("IMAGEN",)
+        fields = ("IMAGEN", "ROLE")
 
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField(read_only=True)
     is_admin = serializers.SerializerMethodField(read_only=True)
+    role = serializers.CharField(source="empleado.ROLE")
 
     # Algo mas sencillo aqui seria crear el campo imagen  en el serializer usando empleado para ello, de esta manera, accedes a image desde usuario y no necesitas usar empleado en el frontend
     empleado = EmpleadoSerializer()
@@ -40,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         # User model from Django has many fields, I only need a few of them
-        fields = ("id", "username", "name", "is_admin", "empleado")
+        fields = ("id", "username", "name", "is_admin", "empleado", "role")
 
     def get_name(self, obj):
         name = obj.first_name

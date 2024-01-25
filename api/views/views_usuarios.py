@@ -36,6 +36,8 @@ def usuario_list(request):
 @transaction.atomic
 def crear_user(request):
     data = request.data
+
+    print("DATA", data)
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario
     post_save.disconnect(create_empleado, sender=User)
     post_save.disconnect(save_empleado, sender=User)
@@ -56,12 +58,9 @@ def crear_user(request):
     # Las funciones create_emplado y save_emplado en signal.py son usadas para crear y guardar el empleado de forma automatica cuando el usuario es creado del panel de Django. Por esa razon estas funciones deben ser desconectadas cuando el usuario se crea desde el frontend, para que no se intente crear o guardar el empleados dos veces.
 
     if data.get("IMAGEN"):
-        Empleado.objects.create(
-            USUARIO=user,
-            IMAGEN=data["IMAGEN"],
-        )
+        Empleado.objects.create(USUARIO=user, IMAGEN=data["IMAGEN"], ROLE=data["role"])
     else:
-        Empleado.objects.create(USUARIO=user)
+        Empleado.objects.create(USUARIO=user, ROLE=data["role"])
 
     # Reconectar la señal
     post_save.connect(create_empleado, sender=User)
@@ -101,10 +100,16 @@ def modificar_usuario(request, pk):
         # Modificar permisos
         # PORQUE SERA QUE EL FRONTEND envia "true" como string y no True?
         # aqui si debe enviar True
-        usuario.is_staff = data["is_admin"] == "true"
+        usuario.is_staff = data["is_admin"]
         usuario.save()
 
         serializer = UserSerializer(usuario)
+
+        empleado = Empleado.objects.get(USUARIO=usuario)
+
+        empleado.ROLE = data.get("role")
+
+        empleado.save()
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 

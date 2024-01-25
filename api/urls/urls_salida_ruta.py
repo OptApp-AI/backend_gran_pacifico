@@ -14,4 +14,10 @@ urlpatterns = [
         views_salida_ruta.devolver_producto_salida_ruta,
     ),
     path("realizar-aviso-visita/<str:pk>/", views_salida_ruta.realizar_aviso_visita),
+    path("devoluciones/", views_salida_ruta.devolucion_list),
+    path("devoluciones/<str:pk>/", views_salida_ruta.devolucion_detalles),
+    path(
+        "realizar-recarga-salida-ruta/<str:pk>/",
+        views_salida_ruta.realizar_recarga_salida_ruta,
+    ),
 ]
