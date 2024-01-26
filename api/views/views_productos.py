@@ -79,9 +79,35 @@ def modificar_producto(request, pk):
 
     if request.method == "PUT":
         # Aqui es donde voy a actualizar el precio de cliente MOSTRADOR Y RUTA (si existen)
-        serializer = ProductoSerializer(producto, data=request.data)
+        data = request.data
+        print("data", data)
+        serializer = ProductoSerializer(producto, data=data)
         if serializer.is_valid():
             serializer.save()
+
+            # Actualizar el cliente mostrador con el nuevo precio
+
+            try:
+                precioMostrador = PrecioCliente.objects.get(
+                    PRODUCTO_id=pk, CLIENTE__NOMBRE="MOSTRADOR"
+                )
+                print("precioMostrador", precioMostrador)
+                precioMostrador.PRECIO = data.get("PRECIO")
+                precioMostrador.save()
+            except PrecioCliente.DoesNotExist:
+                print("No existe un cliente mostrador para actualizar.")
+
+                # Actualizar el cliente ruta con el nuevo precio
+            try:
+                precioRuta = PrecioCliente.objects.get(
+                    PRODUCTO_id=pk, CLIENTE__NOMBRE="RUTA"
+                )
+                print("precioRuta", precioRuta)
+                precioRuta.PRECIO = data.get("PRECIO")
+                precioRuta.save()
+            except PrecioCliente.DoesNotExist:
+                print("No existe un cliente ruta para actualizar.")
+
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

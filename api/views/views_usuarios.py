@@ -17,10 +17,20 @@ from django.db import transaction
 @api_view(["GET"])
 def usuario_list(request):
     # I imagine that i use this for checking username availability?
-    nombreUsuario = request.GET.get("nombreUsuario", "")
-    if nombreUsuario:
-        queryset = User.objects.prefetch_related("empleado").filter(
-            username=nombreUsuario
+    # nombreUsuario = request.GET.get("nombreUsuario", "")
+    # if nombreUsuario:
+    #     queryset = User.objects.prefetch_related("empleado").filter(
+    #         username=nombreUsuario
+    #     )
+    # else:
+
+    role = request.GET.get("role", "")
+
+    if role == "repartidor":
+        queryset = (
+            User.objects.prefetch_related("empleado")
+            .filter(empleado__ROLE="REPARTIDOR")
+            .order_by("-id")
         )
     else:
         queryset = User.objects.prefetch_related("empleado").all().order_by("-id")

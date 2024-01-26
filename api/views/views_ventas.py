@@ -112,7 +112,7 @@ def venta_reporte_list(request):
 
     filters = Q()
     if filtrar_por and buscar:
-        filters = Q(**{f"{filtrar_por}__icontains": buscar})
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
     queryset = Venta.objects.only(
         "id",
@@ -259,6 +259,17 @@ def modificar_venta_put(request, venta):
         producto.CANTIDAD = calcular_cantidad(
             status_actual, data, producto.CANTIDAD, cantidad_venta
         )
+
+        try:
+            assert producto.CANTIDAD >= 0
+        except AssertionError:
+            return Response(
+                {
+                    "message": "No existen productos suficientes para realizar esta operación"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         productos_to_update.append(producto)
 
         producto_cambios["DESPUES"] = producto.CANTIDAD
