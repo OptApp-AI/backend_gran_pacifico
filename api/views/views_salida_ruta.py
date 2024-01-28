@@ -238,7 +238,24 @@ def crear_salida_ruta(request):
 
             clientes_to_create.append(nuevo_cliente_salida_ruta)
 
+        try:
+            cliente = Cliente.objects.get(NOMBRE="RUTA")
+
+            nuevo_cliente_salida_ruta = ClienteSalidaRuta(
+                SALIDA_RUTA=salida_ruta,
+                CLIENTE_RUTA=cliente,
+                CLIENTE_NOMBRE="RUTA",
+                STATUS="VISITADO",
+            )
+
+            clientes_to_create.append(nuevo_cliente_salida_ruta)
+
+        except Cliente.DoesNotExist:
+            print("Cliente con nombre RUTA no existe")
+
         ClienteSalidaRuta.objects.bulk_create(clientes_to_create)
+
+        # Create cliente salida ruta with cliente RUTA
 
         return Response(serializer.data)
     print(serializer.errors)

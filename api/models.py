@@ -417,4 +417,4 @@ class DevolucionSalidaRuta(models.Model):
     FECHA = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.SALIDA_RUTA}, {self.CATIDAD_DEVOLUCION}"
+        return f"{self.SALIDA_RUTA}, {self.CANTIDAD_DEVOLUCION}"

@@ -470,7 +470,11 @@ def modificar_ruta_dia(request, pk):
 # I have to change this view. Instead of sending clients with a list of ruta_dia_ids I should send a ruta dia with a list of clientes (maybe only the cliente id or maybe the cliente and NOMBRE)
 @api_view(["GET"])
 def clientes_salida_ruta_list(request):
-    clientes = Cliente.objects.only("NOMBRE", "id").prefetch_related("RUTAS").all()
+    clientes = (
+        Cliente.objects.only("NOMBRE", "id")
+        .prefetch_related("RUTAS")
+        .exclude(NOMBRE__in=["RUTA", "MOSTRADOR"])
+    )
 
     serializer = ClienteConRutaDiaSerializer(clientes, many=True)
 

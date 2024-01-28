@@ -243,12 +243,19 @@ def modificar_venta_put(request, venta):
     status_actual = venta.STATUS
     status_cambios = {"ANTES": status_actual, "DESPUES": data}
 
+    tipo_venta = venta.TIPO_VENTA
+
+    reporte_cambios = {}
+    if tipo_venta == "RUTA":
+        venta.STATUS = data
+        venta.save()
+        reporte_cambios["STATUS"] = status_cambios
+        return Response(reporte_cambios)
+
     # Obtener productos venta de la venta
     productos_venta = venta.productos_venta.all()
 
     productos_to_update = []
-
-    reporte_cambios = {}
 
     for producto_venta in productos_venta:
         # This is why i need the foreign key relationship from producto_venta to producto
