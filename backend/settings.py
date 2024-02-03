@@ -150,3 +150,9 @@ REST_FRAMEWORK = {
 
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+# CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Permitir dominio del frontend local
+    "http://192.168.100.16:3000",  # Permitir dominio local con IP específica
+]
