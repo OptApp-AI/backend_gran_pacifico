@@ -129,6 +129,16 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# The list of finder backends that know how to find static files in
+# various locations.
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # or os.path.join(BASE_DIR, 'static')
+]
+
+
+# The absolute path to the directory where collectstatic will collect static files for deployment.
+STATIC_ROOT = BASE_DIR / "staticfiles"  # or os.path.join(BASE_DIR, 'staticfiles')
+
 MEDIA_URL = "media/"
 
 MEDIA_ROOT = BASE_DIR / "media"
@@ -152,7 +162,7 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 # CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Permitir dominio del frontend local
-    "http://192.168.100.16:3000",  # Permitir dominio local con IP específica
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # Permitir dominio del frontend local
+#     "http://192.168.100.16:3000",  # Permitir dominio local con IP específica
+# ]
