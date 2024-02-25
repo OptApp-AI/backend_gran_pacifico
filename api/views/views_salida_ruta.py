@@ -19,7 +19,7 @@ from api.serializers import (
     DevolucionSalidaRutaSerializer,
     ProductoSalidaRutaSerializer,
     SalidaRutaSerializer,
-    VentaSerializer,
+    VentaSerializer,SalidaRutaSerializerLigero
 )
 from api.views.utilis.salida_ruta import (
     filter_by_date,
@@ -81,7 +81,7 @@ def salida_ruta_list(request):
         page = paginator.num_pages
         salida_rutas = paginator.page(page)
 
-    serializer = SalidaRutaSerializer(salida_rutas, many=True)
+    serializer = SalidaRutaSerializerLigero(salida_rutas, many=True)
 
     response_data = {
         "salida_rutas": serializer.data,
@@ -338,7 +338,10 @@ def devolver_producto_salida_ruta(request, pk):
     salida_ruta = SalidaRuta.objects.get(id=pk)
 
     try:
-        assert salida_ruta.STATUS == "PROGRESO"
+        assert salida_ruta.STATUS in [
+            "PROGRESO",
+            "PENDIENTE",
+        ]  # Por ahora vamos a permitir que se puedan hacer devoluciones incluso si el status es pendiente
     except AssertionError:
         return Response(
             {

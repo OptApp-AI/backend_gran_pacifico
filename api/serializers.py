@@ -34,6 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField(read_only=True)
     is_admin = serializers.SerializerMethodField(read_only=True)
     role = serializers.CharField(source="empleado.ROLE")
+    empleado_id = serializers.CharField(source="empleado.id", read_only=True)
 
     # Algo mas sencillo aqui seria crear el campo imagen  en el serializer usando empleado para ello, de esta manera, accedes a image desde usuario y no necesitas usar empleado en el frontend
     empleado = EmpleadoSerializer()
@@ -41,7 +42,15 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         # User model from Django has many fields, I only need a few of them
-        fields = ("id", "username", "name", "is_admin", "empleado", "role")
+        fields = (
+            "id",
+            "username",
+            "name",
+            "is_admin",
+            "empleado",
+            "role",
+            "empleado_id",
+        )
 
     def get_name(self, obj):
         name = obj.first_name
@@ -271,9 +280,9 @@ class RutasConRutaDiaSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": ruta_dia.id,
-                "repartidor_id": ruta_dia.REPARTIDOR.id
-                if ruta_dia.REPARTIDOR
-                else None,
+                "repartidor_id": (
+                    ruta_dia.REPARTIDOR.id if ruta_dia.REPARTIDOR else None
+                ),
                 "DIA": ruta_dia.DIA,
             }
             for ruta_dia in obj.ruta_dias.all()
@@ -318,12 +327,40 @@ class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
         return precios_cliente
 
 
+
 # I should use prefetch related for clients and products
 class SalidaRutaSerializer(serializers.ModelSerializer):
     # Para esto si podria valer la pena usar prefetch_related
     productos = ProductoSalidaRutaSerializer(many=True, read_only=True)
 
     clientes = ClienteSalidaRutaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SalidaRuta
+        fields = "__all__"
+
+
+
+# LIGERO
+class ProductoSalidaRutaSerializerLigero(serializers.ModelSerializer):
+    class Meta:
+        model = ProductoSalidaRuta
+        fields = ("PRODUCTO_NOMBRE","CANTIDAD_RUTA","CANTIDAD_DISPONIBLE","STATUS")
+
+class ClienteSalidaRutaSerializerLigero(serializers.ModelSerializer):
+    # Accedemos a los atributos especificos de un hermano mediante un metodo
+    
+
+    class Meta:
+        model = ClienteSalidaRuta
+        fields = ("CLIENTE_NOMBRE","STATUS")
+
+
+class SalidaRutaSerializerLigero(serializers.ModelSerializer):
+    # Para esto si podria valer la pena usar prefetch_related
+    productos = ProductoSalidaRutaSerializerLigero(many=True, read_only=True)
+
+    clientes = ClienteSalidaRutaSerializerLigero(many=True, read_only=True)
 
     class Meta:
         model = SalidaRuta

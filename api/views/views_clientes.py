@@ -340,6 +340,7 @@ def rutas_registrar_cliente(request):
 @api_view(["GET"])
 def clientes_ruta(request, pk):
     nombres = Cliente.objects.filter(RUTAS__id=pk).values_list("NOMBRE", flat=True)
+
     return Response(list(nombres), status=status.HTTP_200_OK)
 
 
@@ -382,9 +383,11 @@ def crear_ruta(request):
 
 @api_view(["PUT", "DELETE"])
 def modificar_ruta(request, pk):
+    print("DFGDHRTHRTH")
     try:
         ruta = Ruta.objects.get(id=pk)
     except Ruta.DoesNotExist:
+        print("BROOOOOOOOOOOOOOOOOO")
         return Response(
             {"message": "Ruta con el id dado no existe"},
             status=status.HTTP_404_NOT_FOUND,

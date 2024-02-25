@@ -68,6 +68,7 @@ def set_default_employee_image(sender, instance, **kwargs):
 @receiver(post_save, sender=User)
 def create_empleado(sender, instance, created, **kwargs):
     if created:
+        # pass
         Empleado.objects.create(USUARIO=instance)
 
 
@@ -76,6 +77,7 @@ def save_empleado(sender, instance, **kwargs):
     try:
         instance.empleado.save()
     except:
+        # pass
         Empleado.objects.create(USUARIO=instance)
 
 
