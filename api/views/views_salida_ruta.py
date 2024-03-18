@@ -19,7 +19,8 @@ from api.serializers import (
     DevolucionSalidaRutaSerializer,
     ProductoSalidaRutaSerializer,
     SalidaRutaSerializer,
-    VentaSerializer,SalidaRutaSerializerLigero
+    VentaSerializer,
+    SalidaRutaSerializerLigero,
 )
 from api.views.utilis.salida_ruta import (
     filter_by_date,
@@ -225,14 +226,16 @@ def crear_salida_ruta(request):
 
         cliente_ids = [cliente["clienteId"] for cliente in salida_ruta_clientes_data]
 
-        cliente_instances = Cliente.objects.filter(id__in=cliente_ids)
+        cliente_instances = Cliente.objects.filter(id__in=cliente_ids).values(
+            "NOMBRE", "id"
+        )
 
         clientes_to_create = []
         for cliente in cliente_instances:
             nuevo_cliente_salida_ruta = ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
-                CLIENTE_RUTA=cliente,
-                CLIENTE_NOMBRE=cliente.NOMBRE,
+                CLIENTE_RUTA_id=cliente["id"],
+                CLIENTE_NOMBRE=cliente["NOMBRE"],
                 STATUS="PENDIENTE",
             )
 
