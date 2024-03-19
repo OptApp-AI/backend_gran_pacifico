@@ -42,7 +42,7 @@ def crear_producto(request):
                 # CLIENTE_id=cliente.id,
                 CLIENTE_id=cliente_id,
                 PRODUCTO=producto,
-                PRECIO=producto.PRECIO
+                PRECIO=producto.PRECIO,
                 # CLIENTE=cliente, PRODUCTO=producto, PRECIO=producto.PRECIO
             )
             # for cliente in clientes
@@ -78,37 +78,22 @@ def modificar_producto(request, pk):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "PUT":
-        # Aqui es donde voy a actualizar el precio de cliente MOSTRADOR Y RUTA (si existen)
-        data = request.data
-        print("data", data)
-        serializer = ProductoSerializer(producto, data=data)
+        data = request.data.copy()  # Create a mutable copy of QueryDict
+        precio = data.get("PRECIO")
+        producto_id = data.get("productoId")
+        del data["PRECIO"]
+
+        serializer = ProductoSerializer(producto, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
 
-            # Actualizar el cliente mostrador con el nuevo precio
-
-            try:
-                precioMostrador = PrecioCliente.objects.get(
-                    PRODUCTO_id=pk, CLIENTE__NOMBRE="MOSTRADOR"
-                )
-                print("precioMostrador", precioMostrador)
-                precioMostrador.PRECIO = data.get("PRECIO")
-                precioMostrador.save()
-            except PrecioCliente.DoesNotExist:
-                print("No existe un cliente mostrador para actualizar.")
-
-                # Actualizar el cliente ruta con el nuevo precio
-            try:
-                precioRuta = PrecioCliente.objects.get(
-                    PRODUCTO_id=pk, CLIENTE__NOMBRE="RUTA"
-                )
-                print("precioRuta", precioRuta)
-                precioRuta.PRECIO = data.get("PRECIO")
-                precioRuta.save()
-            except PrecioCliente.DoesNotExist:
-                print("No existe un cliente ruta para actualizar.")
-
+            # Aqui es donde voy a actualizar el precio de los clientes
+            if data.get("update_price"):
+                producto.PRECIO = precio
+                actualizar_producto_precio(precio, producto_id)
+                producto.save()
             return Response(serializer.data)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == "DELETE":
@@ -117,3 +102,8 @@ def modificar_producto(request, pk):
             {"message": "El producto fuel eliminado exitosamente"},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
+def actualizar_producto_precio(precio, producto_id):
+    # Update price for all clients in the database
+    PrecioCliente.objects.filter(PRODUCTO__id=producto_id).update(PRECIO=precio)
