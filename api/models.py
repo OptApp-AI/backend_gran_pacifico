@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 
 class Empleado(models.Model):
@@ -50,6 +51,9 @@ class Producto(models.Model):
 
     def save(self, *args, **kwargs):
         self.NOMBRE = self.NOMBRE.upper()
+
+        if self.CANTIDAD < 0:
+            raise ValidationError("La cantidad del producto no puede ser negativa.")
 
         super().save(*args, **kwargs)
 
