@@ -19,6 +19,7 @@ from api.serializers import (
     DevolucionSalidaRutaSerializer,
     ProductoSalidaRutaSerializer,
     SalidaRutaSerializer,
+    SalidaRutaSerializerSinClientes,
     VentaSerializer,
     SalidaRutaSerializerLigero,
 )
@@ -180,7 +181,7 @@ def cancelar_salida_ruta(request, pk):
 def crear_salida_ruta(request):
     data = request.data
 
-    serializer = SalidaRutaSerializer(data=data)
+    serializer = SalidaRutaSerializerSinClientes(data=data)
 
     if serializer.is_valid():
         salida_ruta = serializer.save()
@@ -226,7 +227,9 @@ def crear_salida_ruta(request):
 
         cliente_ids = [cliente["clienteId"] for cliente in salida_ruta_clientes_data]
 
-        cliente_instances = Cliente.objects.filter(id__in=cliente_ids).values(
+        # ESTA ES LA PARTE QUE QUIERO OPTIMIZAR
+
+        cliente_instances = Cliente.objects.filter(id__in=cliente_ids).only(
             "NOMBRE", "id"
         )
 
@@ -234,8 +237,8 @@ def crear_salida_ruta(request):
         for cliente in cliente_instances:
             nuevo_cliente_salida_ruta = ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
-                CLIENTE_RUTA_id=cliente["id"],
-                CLIENTE_NOMBRE=cliente["NOMBRE"],
+                CLIENTE_RUTA_id=cliente.id,
+                CLIENTE_NOMBRE=cliente.NOMBRE,
                 STATUS="PENDIENTE",
             )
 
@@ -258,10 +261,8 @@ def crear_salida_ruta(request):
 
         ClienteSalidaRuta.objects.bulk_create(clientes_to_create)
 
-        # Create cliente salida ruta with cliente RUTA
-
         return Response(serializer.data)
-    print(serializer.errors)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

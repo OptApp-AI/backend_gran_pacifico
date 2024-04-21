@@ -327,7 +327,6 @@ class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
         return precios_cliente
 
 
-
 # I should use prefetch related for clients and products
 class SalidaRutaSerializer(serializers.ModelSerializer):
     # Para esto si podria valer la pena usar prefetch_related
@@ -340,20 +339,38 @@ class SalidaRutaSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class SalidaRutaSerializerSinClientes(serializers.ModelSerializer):
+
+    # Asumiendo que ya tienes estos Serializers definidos correctamente
+    productos = ProductoSalidaRutaSerializer(many=True, read_only=True)
+    # Para clientes, podemos agregar el serializer si lo activas después
+    # clientes = ClienteSalidaRutaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SalidaRuta
+
+        fields = "__all__"
+        extra_kwargs = {
+            "RUTA": {"write_only": True},
+            "RUTA_NOMBRE": {"write_only": True},
+            "REPARTIDOR": {"write_only": True},
+            "STATUS": {"write_only": True},
+        }
+
 
 # LIGERO
 class ProductoSalidaRutaSerializerLigero(serializers.ModelSerializer):
     class Meta:
         model = ProductoSalidaRuta
-        fields = ("PRODUCTO_NOMBRE","CANTIDAD_RUTA","CANTIDAD_DISPONIBLE","STATUS")
+        fields = ("PRODUCTO_NOMBRE", "CANTIDAD_RUTA", "CANTIDAD_DISPONIBLE", "STATUS")
+
 
 class ClienteSalidaRutaSerializerLigero(serializers.ModelSerializer):
     # Accedemos a los atributos especificos de un hermano mediante un metodo
-    
 
     class Meta:
         model = ClienteSalidaRuta
-        fields = ("CLIENTE_NOMBRE","STATUS")
+        fields = ("CLIENTE_NOMBRE", "STATUS")
 
 
 class SalidaRutaSerializerLigero(serializers.ModelSerializer):
