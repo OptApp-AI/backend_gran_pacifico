@@ -235,6 +235,8 @@ def modificar_venta(request, pk):
 
 def modificar_venta_put(request, venta):
     data = request.data.get("STATUS")
+
+    
     if data is None:
         return Response(
             {"error": "STATUS is required"}, status=status.HTTP_400_BAD_REQUEST
@@ -255,11 +257,14 @@ def modificar_venta_put(request, venta):
     # Obtener productos venta de la venta
     productos_venta = venta.productos_venta.all()
 
+    
+
     productos_to_update = []
 
     for producto_venta in productos_venta:
         # This is why i need the foreign key relationship from producto_venta to producto
         producto = producto_venta.PRODUCTO
+        print(producto, data)
         producto_cambios = {"ANTES": producto.CANTIDAD}
 
         cantidad_venta = producto_venta.CANTIDAD_VENTA
@@ -297,5 +302,9 @@ def calcular_cantidad(status_actual, status, cantidad_antes, cantidad_venta):
             return cantidad_antes - cantidad_venta
         else:
             return cantidad_antes  # cancelado
+    if status_actual == "REALIZADO":
+        if status in ["CANCELADO", "PENDIENTE"]:
+            return cantidad_antes + cantidad_venta
+        return cantidad_antes
     else:
         return cantidad_antes
