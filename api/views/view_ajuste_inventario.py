@@ -4,7 +4,7 @@ from rest_framework import status
 from django.db import transaction
 
 from api.models import AjusteInventario, Producto
-from api.serializers import AjusteInventarioSerializer
+from api.serializers import AjusteInventarioSerializer, AjusteInventarioReporteSerializer
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
@@ -104,3 +104,55 @@ def crear_ajuste_inventario(request):
 
     print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+# Vistas para ventas
+@api_view(["GET"])
+def ajuste_inventario_reporte_list(request):
+
+    # Existing logic for filters
+    filtrar_por = request.GET.get("filtrarpor", "")
+    buscar = request.GET.get("buscar", "")
+    fechainicio = request.GET.get("fechainicio", "")
+    fechafinal = request.GET.get("fechafinal", "")
+    ordenar_por = request.GET.get("ordenarpor", "")
+
+    # const url = `/ajuste-inventarios?filtrarpor=${filtrarPor}&buscar=${buscar}&ordenarpor=${ordenarPor}&fechainicio=${fechaInicio}&fechafinal=${fechaFinal}`;
+
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
+
+    queryset = AjusteInventario.objects.only(
+        "id",
+        "CAJERO",
+        "BODEGA",
+        "ADMINISTRADOR",
+        "PRODUCTO",
+        "PRODUCTO_NOMBRE",
+        "CANTIDAD",
+        "TIPO_AJUSTE",
+        "STATUS",
+        "FECHA",
+        "OBSERVACIONES",
+        ).filter(filters)
+
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
+
+    ordering_dict = {
+        "cajero": "CAJERO",
+        "bodega": "BODEGA",
+        "administrador": "ADMINISTRADOR",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA"
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
+
+    # Serialize the queryset
+    serializer = AjusteInventarioReporteSerializer(queryset, many=True)
+    response_data = serializer.data
+
+
+    return Response(response_data, status=status.HTTP_200_OK)

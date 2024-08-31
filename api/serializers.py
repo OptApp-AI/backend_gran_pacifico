@@ -80,7 +80,9 @@ class AjusteInventarioSerializer(serializers.ModelSerializer):
         model = AjusteInventario
         fields = "__all__"
 
-
+class AjusteInventarioReporteSerializer(AjusteInventarioSerializer):
+    class Meta(AjusteInventarioSerializer.Meta):
+        fields = "__all__"
 # Clientes
 
 
