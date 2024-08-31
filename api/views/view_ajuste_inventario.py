@@ -129,7 +129,6 @@ def ajuste_inventario_reporte_list(request):
         "id",
         "CAJERO",
         "BODEGA",
-        "ADMINISTRADOR",
         "PRODUCTO",
         "PRODUCTO_NOMBRE",
         "CANTIDAD",
@@ -144,7 +143,6 @@ def ajuste_inventario_reporte_list(request):
     ordering_dict = {
         "cajero": "CAJERO",
         "bodega": "BODEGA",
-        "administrador": "ADMINISTRADOR",
         "fecha_recientes": "-FECHA",
         "fecha_antiguos": "FECHA"
     }
