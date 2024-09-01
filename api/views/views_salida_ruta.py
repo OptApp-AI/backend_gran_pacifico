@@ -229,9 +229,17 @@ def crear_salida_ruta(request):
 
         # ESTA ES LA PARTE QUE QUIERO OPTIMIZAR
 
-        cliente_instances = Cliente.objects.filter(id__in=cliente_ids).only(
-            "NOMBRE", "id"
-        )
+        # cliente_instances = Cliente.objects.filter(id__in=cliente_ids).only(
+        #     "NOMBRE", "id"
+        # )
+        # OPTIMIZED USING in_bulk
+        cliente_instances_dict = Cliente.objects.in_bulk(cliente_ids)
+
+        # Extract only the required fields (NOMBRE, id) manually
+        cliente_instances = [
+            {"id": cliente.id, "NOMBRE": cliente.NOMBRE} 
+            for cliente in cliente_instances_dict.values()
+        ]
 
         # clientes_to_create = []
         # for cliente in cliente_instances:
@@ -248,8 +256,8 @@ def crear_salida_ruta(request):
         clientes_to_create = [
             ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
-                CLIENTE_RUTA_id=cliente.id,
-                CLIENTE_NOMBRE=cliente.NOMBRE,
+                CLIENTE_RUTA_id=cliente["id"],
+                CLIENTE_NOMBRE=cliente["NOMBRE"],
                 STATUS="PENDIENTE",
             )
             for cliente in cliente_instances
