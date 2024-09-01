@@ -233,23 +233,34 @@ def crear_salida_ruta(request):
             "NOMBRE", "id"
         )
 
-        clientes_to_create = []
-        for cliente in cliente_instances:
-            nuevo_cliente_salida_ruta = ClienteSalidaRuta(
+        # clientes_to_create = []
+        # for cliente in cliente_instances:
+        #     nuevo_cliente_salida_ruta = ClienteSalidaRuta(
+        #         SALIDA_RUTA=salida_ruta,
+        #         CLIENTE_RUTA_id=cliente.id,
+        #         CLIENTE_NOMBRE=cliente.NOMBRE,
+        #         STATUS="PENDIENTE",
+        #     )
+
+        #     clientes_to_create.append(nuevo_cliente_salida_ruta)
+
+        # Crear una lista de objetos ClienteSalidaRuta
+        clientes_to_create = [
+            ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
                 CLIENTE_RUTA_id=cliente.id,
                 CLIENTE_NOMBRE=cliente.NOMBRE,
                 STATUS="PENDIENTE",
             )
-
-            clientes_to_create.append(nuevo_cliente_salida_ruta)
+            for cliente in cliente_instances
+        ]
 
         try:
-            cliente = Cliente.objects.get(NOMBRE="RUTA")
+            cliente_ruta = Cliente.objects.get(NOMBRE="RUTA")
 
             nuevo_cliente_salida_ruta = ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
-                CLIENTE_RUTA=cliente,
+                CLIENTE_RUTA=cliente_ruta,
                 CLIENTE_NOMBRE="RUTA",
                 STATUS="VISITADO",
             )
