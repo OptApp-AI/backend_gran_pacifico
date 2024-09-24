@@ -25,6 +25,14 @@ class Empleado(models.Model):
         default="CAJERO",
     )
 
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
+    )
+
     def __str__(self):
         return f"Empleado con usuario: {self.USUARIO.username}"
 
@@ -78,6 +86,7 @@ class AjusteInventario(models.Model):
     )
     # status is pendiente until an admin changes the status to relizado
     # La cajera realiza el ajuste inventario, pero mientras el administrador no la autorice, el STATUS permanece como pendiente y la cajera no puede realizar el corte
+
     STATUS = models.CharField(
         max_length=200,
         choices=(("REALIZADO", "REALIZADO"), ("PENDIENTE", "PENDIENTE")),
@@ -255,7 +264,7 @@ class ProductoVenta(models.Model):
         return f"{self.VENTA}, {self.NOMBRE_PRODUCTO}"
 
 
-# RUTA 6
+# RUTA #################################################################################################################################
 class Ruta(models.Model):
     NOMBRE = models.CharField(max_length=100, unique=True)
 

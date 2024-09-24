@@ -85,24 +85,23 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'gran_pacifico',
-        'USER': 'root',
-        'PASSWORD': 'mannis1234',
-        'HOST': 'localhost',  # O la IP de tu servidor MySQL
-        'PORT': '3306',       # Puerto por defecto de MySQL
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'gran_pacifico',
+#         'USER': 'root',
+#         'PASSWORD': 'mannis1234',
+#         'HOST': 'localhost',  # O la IP de tu servidor MySQL
+#         'PORT': '3306',       # Puerto por defecto de MySQL
+#     }
+# }
 
 
 # Password validation
@@ -143,13 +142,13 @@ STATIC_URL = "static/"
 
 # The list of finder backends that know how to find static files in
 # various locations.
-STATICFILES_DIRS = [
-    BASE_DIR / "static",  # or os.path.join(BASE_DIR, 'static')
-]
+# STATICFILES_DIRS = [
+#     BASE_DIR / "static",  # or os.path.join(BASE_DIR, 'static')
+# ]
 
 
-# The absolute path to the directory where collectstatic will collect static files for deployment.
-STATIC_ROOT = BASE_DIR / "staticfiles"  # or os.path.join(BASE_DIR, 'staticfiles')
+# # The absolute path to the directory where collectstatic will collect static files for deployment.
+# STATIC_ROOT = BASE_DIR / "staticfiles"  # or os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = "media/"
 
@@ -165,9 +164,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    # 'DEFAULT_PERMISSION_CLASSES': (
-    #     'rest_framework.permissions.IsAuthenticated',
-    # ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
 

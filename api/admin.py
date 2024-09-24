@@ -38,7 +38,12 @@ class ClienteAdmin(admin.ModelAdmin):
 
 
 class EmpleadoAdmin(admin.ModelAdmin):
-    list_display = ("USUARIO",)
+    list_display = ("USUARIO", "CIUDAD_REGISTRO", "is_user_staff")
+
+    def is_user_staff(self, obj):
+        return obj.USUARIO.is_staff
+
+    is_user_staff.short_description = "Is Staff"  # Cambia el nombre de la columna
 
 
 admin.site.register(Producto)

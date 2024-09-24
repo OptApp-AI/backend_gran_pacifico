@@ -12,28 +12,26 @@ from django.contrib.auth.hashers import make_password
 from django.db.models.signals import post_save
 from api.signals import create_empleado, save_empleado
 from django.db import transaction
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from api.views.utilis.general import obtener_ciudad_registro
 
 
 @api_view(["GET"])
 def usuario_list(request):
-    # I imagine that i use this for checking username availability?
-    # nombreUsuario = request.GET.get("nombreUsuario", "")
-    # if nombreUsuario:
-    #     queryset = User.objects.prefetch_related("empleado").filter(
-    #         username=nombreUsuario
-    #     )
-    # else:
 
-    role = request.GET.get("role", "")
+    # Cuando usas JWT (JSON Web Tokens) en Django, el objeto request.user sí está disponible, siempre que estés utilizando un sistema de autenticación adecuado como djangorestframework-simplejwt o djangorestframework-jwt. Estos sistemas configuran el middleware para que request.user se complete automáticamente con el usuario autenticado basado en el token JWT.
+    # CIUDAD_REGISTRO = request.user.empleado.CIUDAD_REGISTRO
 
-    if role == "repartidor":
-        queryset = (
-            User.objects.prefetch_related("empleado")
-            .filter(empleado__ROLE="REPARTIDOR")
-            .order_by("-id")
-        )
-    else:
-        queryset = User.objects.prefetch_related("empleado").all().order_by("-id")
+    # print("CIUDAD_REGISTRO", CIUDAD_REGISTRO)
+    # print("USUARIO", request.user)
+
+    ciudad_registro = obtener_ciudad_registro(request)
+    queryset = (
+        User.objects.prefetch_related("empleado")
+        .filter(empleado__CIUDAD_REGISTRO=ciudad_registro)
+        .order_by("-id")
+    )
 
     # This serializer returns basic information about the users but not their token. The only way to obtain the token is through the login endpoint
     serializer = UserSerializer(queryset, many=True)
@@ -47,7 +45,8 @@ def usuario_list(request):
 def crear_user(request):
     data = request.data
 
-    print("DATA", data)
+    ciudad_registro = obtener_ciudad_registro(request)
+
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario
     post_save.disconnect(create_empleado, sender=User)
     post_save.disconnect(save_empleado, sender=User)
@@ -68,9 +67,18 @@ def crear_user(request):
     # Las funciones create_emplado y save_emplado en signal.py son usadas para crear y guardar el empleado de forma automatica cuando el usuario es creado del panel de Django. Por esa razon estas funciones deben ser desconectadas cuando el usuario se crea desde el frontend, para que no se intente crear o guardar el empleados dos veces.
 
     if data.get("IMAGEN"):
-        Empleado.objects.create(USUARIO=user, IMAGEN=data["IMAGEN"], ROLE=data["role"])
+        Empleado.objects.create(
+            USUARIO=user,
+            IMAGEN=data["IMAGEN"],
+            ROLE=data["role"],
+            CIUDAD_REGISTRO=ciudad_registro,
+        )
     else:
-        Empleado.objects.create(USUARIO=user, ROLE=data["role"])
+        Empleado.objects.create(
+            USUARIO=user,
+            ROLE=data["role"],
+            CIUDAD_REGISTRO=ciudad_registro,
+        )
 
     # Reconectar la señal
     post_save.connect(create_empleado, sender=User)

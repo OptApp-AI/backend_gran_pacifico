@@ -27,7 +27,7 @@ from django.contrib.auth.models import User
 class EmpleadoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empleado
-        fields = ("IMAGEN", "ROLE")
+        fields = ("IMAGEN", "ROLE", "CIUDAD_REGISTRO")
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -80,9 +80,12 @@ class AjusteInventarioSerializer(serializers.ModelSerializer):
         model = AjusteInventario
         fields = "__all__"
 
+
 class AjusteInventarioReporteSerializer(AjusteInventarioSerializer):
     class Meta(AjusteInventarioSerializer.Meta):
         fields = "__all__"
+
+
 # Clientes
 
 
