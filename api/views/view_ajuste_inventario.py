@@ -8,6 +8,8 @@ from api.serializers import AjusteInventarioSerializer, AjusteInventarioReporteS
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
+from api.views.utilis.general import obtener_ciudad_registro
+
 from .utilis.ventas import filter_by_date
 
 
@@ -21,11 +23,13 @@ def ajuste_inventario_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
 
+    ciudad_registro = obtener_ciudad_registro(request)
+
     filters = Q()
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
-    queryset = AjusteInventario.objects.select_related("PRODUCTO").filter(filters)
+    queryset = AjusteInventario.objects.select_related("PRODUCTO").filter(filters, CIUDAD_REGISTRO = ciudad_registro)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 

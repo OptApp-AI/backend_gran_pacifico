@@ -11,11 +11,16 @@ from api.models import (
 from api.serializers import (
     ProductoSerializer,
 )
+from api.views.utilis.general import obtener_ciudad_registro
 
 
 @api_view(["GET"])
 def producto_list(request):
-    queryset = Producto.objects.all().order_by("-id")
+
+    ciudad_registro = obtener_ciudad_registro(request)
+
+
+    queryset = Producto.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by("-id")
 
     serializer = ProductoSerializer(queryset, many=True)
 
@@ -26,7 +31,13 @@ def producto_list(request):
 @transaction.atomic
 def crear_producto(request):
     # 1. Crear producto
-    serializer = ProductoSerializer(data=request.data)
+
+    data=request.data.copy()
+
+    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request) 
+    data["CIUDAD_REGISTRO"] = ciudad_registro
+
+    serializer = ProductoSerializer(data=data)
     if serializer.is_valid():
         producto = serializer.save()
 
@@ -106,4 +117,6 @@ def modificar_producto(request, pk):
 
 def actualizar_producto_precio(precio, producto_id):
     # Update price for all clients in the database
+    # Correction, update price for clients from the same CIUDAD_REGISTRO than product 
+    # I don't need to modify the code because this product_id only exist for clients from that CIUDAD_REGISTRO 
     PrecioCliente.objects.filter(PRODUCTO__id=producto_id).update(PRECIO=precio)

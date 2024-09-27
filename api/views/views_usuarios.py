@@ -14,7 +14,7 @@ from api.signals import create_empleado, save_empleado
 from django.db import transaction
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from api.views.utilis.general import obtener_ciudad_registro
+from api.views.utilis.general import obtener_ciudad_registro, obtener_nombre_usuario
 
 
 @api_view(["GET"])
@@ -27,6 +27,8 @@ def usuario_list(request):
     # print("USUARIO", request.user)
 
     ciudad_registro = obtener_ciudad_registro(request)
+
+    
     queryset = (
         User.objects.prefetch_related("empleado")
         .filter(empleado__CIUDAD_REGISTRO=ciudad_registro)
@@ -50,9 +52,13 @@ def crear_user(request):
     # Desconectar la señal temporalmente para que django no intente crear el empleado dos veces para este mismo usuario
     post_save.disconnect(create_empleado, sender=User)
     post_save.disconnect(save_empleado, sender=User)
+
+
+    # Modificar username para evitar repeticion con valor en uruapan 
+    username = obtener_nombre_usuario(ciudad_registro, data["username"])
     try:
         user = User.objects.create(
-            username=data["username"],
+            username=username,
             password=make_password(data["password1"]),
             first_name=data["name"].upper(),
             # The reason why we need to write this is because the content-type in the request is multipart/form-data which transforms all fields into files and strings

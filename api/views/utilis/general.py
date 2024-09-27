@@ -17,3 +17,12 @@ def obtener_ciudad_registro(request):
     ciudad_registro = empleado.CIUDAD_REGISTRO
 
     return ciudad_registro
+
+
+def obtener_nombre_usuario(ciudad_registro, username):
+
+    if ciudad_registro == "URUAPAN": 
+
+        return  username + "_urp"
+    
+    return username + "_laz"

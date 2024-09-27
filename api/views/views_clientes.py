@@ -30,6 +30,8 @@ from django.db.models import Q
 from django.db import transaction
 from django.db.models import Prefetch
 
+from api.views.utilis.general import obtener_ciudad_registro
+
 
 @api_view(["GET"])
 def cliente_list(request):
@@ -44,6 +46,7 @@ def cliente_list(request):
 
     # Construct a Q object for filtering
     q_objects = Q()
+    ciudad_registro = obtener_ciudad_registro(request)
 
     # Filtrar usando clientefiltrarpor y clientebuscar
     filtrar_por = request.GET.get("clientefiltrarpor", "").upper()
@@ -64,7 +67,7 @@ def cliente_list(request):
     )
 
     queryset = (
-        Cliente.objects.filter(q_objects)
+        Cliente.objects.filter(q_objects, CIUDAD_REGISTRO = ciudad_registro)
         .select_related("DIRECCION")
         .prefetch_related("RUTAS", precios_cliente_prefetch)
     )
@@ -137,6 +140,7 @@ def cliente_list(request):
 @api_view(["GET"])
 def cliente_venta_lista(request):
     nombre = request.GET.get("nombre", "")
+    ciudad_registro = obtener_ciudad_registro(request)
     # cache_key = f"cliente_venta_lista:{nombre}"
 
     # Try to fetch from cache first
@@ -152,20 +156,20 @@ def cliente_venta_lista(request):
         # Use .only() to limit the fields fetched from the Cliente model.
 
         queryset = (
-            Cliente.objects.filter(NOMBRE__icontains=nombre)
+            Cliente.objects.filter(NOMBRE__icontains=nombre, CIUDAD_REGISTRO = ciudad_registro)
             .only("id", "NOMBRE")
             .order_by("NOMBRE")
             .prefetch_related(precios_cliente_prefetch)[:5]
         )
         if not queryset.exists():
             queryset = (
-                Cliente.objects.filter(NOMBRE="MOSTRADOR")
+                Cliente.objects.filter(NOMBRE="MOSTRADOR", CIUDAD_REGISTRO = ciudad_registro)
                 .only("id", "NOMBRE")
                 .prefetch_related(precios_cliente_prefetch)
             )
     else:
         queryset = (
-            Cliente.objects.filter(NOMBRE="MOSTRADOR")
+            Cliente.objects.filter(NOMBRE="MOSTRADOR", CIUDAD_REGISTRO = ciudad_registro)
             .only("id", "NOMBRE")
             .prefetch_related(precios_cliente_prefetch)
         )
@@ -189,8 +193,9 @@ def cliente_venta_lista(request):
 @api_view(["POST"])
 @transaction.atomic  # Ensures atomic transaction
 def crear_cliente(request):
-    data = request.data
-
+    data = request.data.copy()
+    ciudad_registro = obtener_ciudad_registro(request)
+    data["CIUDAD_REGISTRO"] = ciudad_registro
     try:
         # 1. Create Cliente
         serializer = ClienteSerializer(data=data)
@@ -377,17 +382,16 @@ def crear_ruta(request):
         serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    print(serializer.errors)
+    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["PUT", "DELETE"])
 def modificar_ruta(request, pk):
-    print("DFGDHRTHRTH")
+    
     try:
         ruta = Ruta.objects.get(id=pk)
     except Ruta.DoesNotExist:
-        print("BROOOOOOOOOOOOOOOOOO")
         return Response(
             {"message": "Ruta con el id dado no existe"},
             status=status.HTTP_404_NOT_FOUND,
@@ -459,7 +463,6 @@ def modificar_ruta_dia(request, pk):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -53,6 +53,14 @@ class Producto(models.Model):
 
     IMAGEN = models.ImageField(upload_to="imagenes/productos", null=True, blank=True)
 
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
+    )
+
     # RECUERDA NO PONER NADA QUE SE PUEDE VOLVER NULL AQUI
     def __str__(self):
         return f"{self.NOMBRE}, {self.CANTIDAD}, {self.PRECIO}"
@@ -96,6 +104,14 @@ class AjusteInventario(models.Model):
     FECHA = models.DateTimeField(auto_now=True)
 
     OBSERVACIONES = models.CharField(max_length=200, blank=True)
+
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
+    )
 
     def save(self, *args, **kwargs):
         self.PRODUCTO_NOMBRE = self.PRODUCTO_NOMBRE.upper()
@@ -160,6 +176,14 @@ class Cliente(models.Model):
     # Un cliente puede tener muchas rutas
     # Query Optimization: Use select_related or prefetch_related if your serialized model has ForeignKey or ManyToManyField to reduce database hits.
     RUTAS = models.ManyToManyField("RutaDia", blank=True, related_name="clientes_ruta")
+
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
+    )
 
     def save(self, *args, **kwargs):
         self.NOMBRE = self.NOMBRE.upper()
@@ -241,6 +265,14 @@ class Venta(models.Model):
 
     DESCUENTO = models.FloatField(
         validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
     )
 
     def __str__(self):

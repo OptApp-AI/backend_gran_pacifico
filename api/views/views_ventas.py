@@ -14,6 +14,8 @@ from django.db.models import Case, When, Value, IntegerField
 from django.utils.dateparse import parse_date
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import timedelta
+
+from api.views.utilis.general import obtener_ciudad_registro
 from .utilis.ventas import filter_by_date
 from django.db.models import Q
 from django.core.cache import cache
@@ -38,6 +40,7 @@ def venta_list(request):
     fechafinal = request.GET.get("fechafinal", "")
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
+    ciudad_registro = obtener_ciudad_registro(request)
 
     # One of the reasons I added NOMBRE_CLIENTE is to use this field as filtering
     filters = Q()
@@ -50,7 +53,7 @@ def venta_list(request):
     queryset = (
         Venta.objects.select_related("CLIENTE")
         .prefetch_related(productos_venta_prefetch)
-        .filter(filters)
+        .filter(filters, CIUDAD_REGISTRO = ciudad_registro)
     )
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
@@ -109,6 +112,8 @@ def venta_reporte_list(request):
     fechainicio = request.GET.get("fechainicio", "")
     fechafinal = request.GET.get("fechafinal", "")
     ordenar_por = request.GET.get("ordenarpor", "")
+    
+    ciudad_registro = obtener_ciudad_registro(request)
 
     filters = Q()
     if filtrar_por and buscar:
@@ -124,7 +129,7 @@ def venta_reporte_list(request):
         "TIPO_PAGO",
         "OBSERVACIONES",
         "DESCUENTO",
-    ).filter(filters)
+    ).filter(filters, CIUDAD_REGISTRO = ciudad_registro)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -154,7 +159,12 @@ def venta_reporte_list(request):
 @api_view(["POST"])
 @transaction.atomic
 def crear_venta(request):
-    data = request.data
+    data = request.data.copy()
+
+    ciudad_registro = obtener_ciudad_registro(request)
+
+    data["CIUDAD_REGISTRO"] = ciudad_registro
+
     # Aqui la data va a cambiar para ventas en salida ruta, en especifico tipo_venta es ruta
     serializer = VentaSerializer(data=data)
     if serializer.is_valid():
