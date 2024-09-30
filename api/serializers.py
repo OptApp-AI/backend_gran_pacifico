@@ -203,7 +203,7 @@ class ClienteVentaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cliente
 
-        fields = ("id", "precios_cliente", "NOMBRE")
+        fields = ("id", "precios_cliente", "NOMBRE", "CIUDAD_REGISTRO")
 
 
 # Venta
