@@ -45,7 +45,7 @@ def crear_producto(request):
 
         # Retrieving only the IDs of Cliente using .only("id") is generally efficient because it minimizes the amount of data loaded from the database. However, if you're interested solely in the IDs and not the Cliente model instances, fetching the IDs as a list using .values_list('id', flat=True) would be even more efficient. This is because .values_list() retrieves just the specified fields directly, without constructing model instances, which can save memory when dealing with a large number of objects.
         # clientes = Cliente.objects.only("id")
-        cliente_ids = Cliente.objects.values_list("id", flat=True)
+        cliente_ids = Cliente.objects.filter(CIUDAD_REGISTRO = ciudad_registro).values_list("id", flat=True)
 
         # Crear una lista de objetos PrecioCliente para insertar en lote
         precios_clientes_instances = [
