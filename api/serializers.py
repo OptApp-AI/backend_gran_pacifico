@@ -83,7 +83,16 @@ class AjusteInventarioSerializer(serializers.ModelSerializer):
 
 class AjusteInventarioReporteSerializer(AjusteInventarioSerializer):
     class Meta(AjusteInventarioSerializer.Meta):
-        fields = "__all__"
+        fields = [
+            "id",
+            "CAJERO",
+            "BODEGA",
+            "PRODUCTO_NOMBRE",
+            "CANTIDAD",
+            "TIPO_AJUSTE",
+            "FECHA",
+            "OBSERVACIONES",
+        ]
 
 
 # Clientes
@@ -233,7 +242,18 @@ class VentaSerializer(BaseVentaSerializer):
 
 class VentaReporteSerializer(BaseVentaSerializer):
     class Meta(BaseVentaSerializer.Meta):
-        fields = "__all__"
+        fields = [
+            "id",
+            "VENDEDOR",
+            "NOMBRE_CLIENTE",
+            "FECHA",
+            "MONTO",
+            "TIPO_VENTA",
+            "TIPO_PAGO",
+            "STATUS",
+            "OBSERVACIONES",
+            "DESCUENTO",
+        ]
 
 
 # Ruta

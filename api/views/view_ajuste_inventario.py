@@ -4,13 +4,14 @@ from rest_framework import status
 from django.db import transaction
 
 from api.models import AjusteInventario, Producto
-from api.serializers import AjusteInventarioSerializer, AjusteInventarioReporteSerializer
+from api.serializers import (
+    AjusteInventarioSerializer,
+    AjusteInventarioReporteSerializer,
+)
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
-from api.views.utilis.general import obtener_ciudad_registro
-
-from .utilis.ventas import filter_by_date
+from api.views.utilis.general import obtener_ciudad_registro, filter_by_date
 
 
 # I need to add pagination and filtering to this view
@@ -29,7 +30,9 @@ def ajuste_inventario_list(request):
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
-    queryset = AjusteInventario.objects.select_related("PRODUCTO").filter(filters, CIUDAD_REGISTRO = ciudad_registro)
+    queryset = AjusteInventario.objects.select_related("PRODUCTO").filter(
+        filters, CIUDAD_REGISTRO=ciudad_registro
+    )
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -110,8 +113,6 @@ def crear_ajuste_inventario(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 # Vistas para ventas
 @api_view(["GET"])
 def ajuste_inventario_reporte_list(request):
@@ -133,14 +134,13 @@ def ajuste_inventario_reporte_list(request):
         "id",
         "CAJERO",
         "BODEGA",
-        "PRODUCTO",
         "PRODUCTO_NOMBRE",
         "CANTIDAD",
         "TIPO_AJUSTE",
         "STATUS",
         "FECHA",
         "OBSERVACIONES",
-        ).filter(filters)
+    ).filter(filters)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -148,13 +148,12 @@ def ajuste_inventario_reporte_list(request):
         "cajero": "CAJERO",
         "bodega": "BODEGA",
         "fecha_recientes": "-FECHA",
-        "fecha_antiguos": "FECHA"
+        "fecha_antiguos": "FECHA",
     }
     queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
 
     # Serialize the queryset
     serializer = AjusteInventarioReporteSerializer(queryset, many=True)
     response_data = serializer.data
-
 
     return Response(response_data, status=status.HTTP_200_OK)

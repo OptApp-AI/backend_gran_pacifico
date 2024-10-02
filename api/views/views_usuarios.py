@@ -14,7 +14,7 @@ from api.signals import create_empleado, save_empleado
 from django.db import transaction
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from api.views.utilis.general import obtener_ciudad_registro, obtener_nombre_usuario
+from api.views.utilis.general import obtener_ciudad_registro, obtener_nombre_con_sufijo
 
 
 @api_view(["GET"])
@@ -28,12 +28,21 @@ def usuario_list(request):
 
     ciudad_registro = obtener_ciudad_registro(request)
 
-    
-    queryset = (
-        User.objects.prefetch_related("empleado")
-        .filter(empleado__CIUDAD_REGISTRO=ciudad_registro)
-        .order_by("-id")
-    )
+    role = request.GET.get("role", "")
+    if role == "repartidor":
+        queryset = (
+            User.objects.prefetch_related("empleado")
+            .filter(
+                empleado__ROLE="REPARTIDOR", empleado__CIUDAD_REGISTRO=ciudad_registro
+            )
+            .order_by("-id")
+        )
+    else:
+        queryset = (
+            User.objects.prefetch_related("empleado")
+            .filter(empleado__CIUDAD_REGISTRO=ciudad_registro)
+            .order_by("-id")
+        )
 
     # This serializer returns basic information about the users but not their token. The only way to obtain the token is through the login endpoint
     serializer = UserSerializer(queryset, many=True)
@@ -53,9 +62,8 @@ def crear_user(request):
     post_save.disconnect(create_empleado, sender=User)
     post_save.disconnect(save_empleado, sender=User)
 
-
-    # Modificar username para evitar repeticion con valor en uruapan 
-    username = obtener_nombre_usuario(ciudad_registro, data["username"])
+    # Modificar username para evitar repeticion con valor en uruapan
+    username = obtener_nombre_con_sufijo(ciudad_registro, data["username"])
     try:
         user = User.objects.create(
             username=username,

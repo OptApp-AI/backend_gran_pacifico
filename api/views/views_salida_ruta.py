@@ -24,10 +24,11 @@ from api.serializers import (
     SalidaRutaSerializerLigero,
 )
 from api.views.utilis.salida_ruta import (
-    filter_by_date,
     verificar_salida_ruta_completada,
 )
 from django.db.models import Case, When, Value, IntegerField
+
+from api.views.utilis.general import obtener_ciudad_registro, filter_by_date
 
 
 @api_view(["GET"])
@@ -39,6 +40,9 @@ def salida_ruta_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
     role = request.GET.get("role", "")
+    data = request.data.copy()
+
+    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
 
     filters = Q()
     if filtrar_por and buscar:
@@ -54,7 +58,7 @@ def salida_ruta_list(request):
     queryset = (
         SalidaRuta.objects.select_related("RUTA", "REPARTIDOR")
         .prefetch_related(productos_salida_ruta_prefetch, clientes_salida_ruta_prefetch)
-        .filter(filters)
+        .filter(filters, CIUDAD_REGISTRO=ciudad_registro)
     )
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
@@ -181,6 +185,11 @@ def cancelar_salida_ruta(request, pk):
 def crear_salida_ruta(request):
     data = request.data
 
+    data = request.data.copy()
+
+    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
+    data["CIUDAD_REGISTRO"] = ciudad_registro
+
     serializer = SalidaRutaSerializerSinClientes(data=data)
 
     if serializer.is_valid():
@@ -237,7 +246,7 @@ def crear_salida_ruta(request):
 
         # Extract only the required fields (NOMBRE, id) manually
         cliente_instances = [
-            {"id": cliente.id, "NOMBRE": cliente.NOMBRE} 
+            {"id": cliente.id, "NOMBRE": cliente.NOMBRE}
             for cliente in cliente_instances_dict.values()
         ]
 
@@ -415,15 +424,15 @@ def devolver_producto_salida_ruta(request, pk):
 def realizar_aviso_visita(request, pk):
     salida_ruta = SalidaRuta.objects.get(id=pk)
 
-    try:
-        assert salida_ruta.STATUS == "PROGRESO"
-    except AssertionError:
-        return Response(
-            {
-                "message": "El STATUS de salida ruta debe ser PROGRESO para poder realizar un aviso de visita"
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    # try:
+    #     assert salida_ruta.STATUS == "PROGRESO"
+    # except AssertionError:
+    #     return Response(
+    #         {
+    #             "message": "El STATUS de salida ruta debe ser PROGRESO para poder realizar un aviso de visita"
+    #         },
+    #         status=status.HTTP_400_BAD_REQUEST,
+    #     )
 
     data = request.data
 
@@ -466,13 +475,15 @@ def devolucion_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
 
+    ciudad_registro = obtener_ciudad_registro(request)
+
     filters = Q()
     if filtrar_por and buscar:
         filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
 
     queryset = DevolucionSalidaRuta.objects.select_related(
         "SALIDA_RUTA", "PRODUCTO_DEVOLUCION"
-    ).filter(filters)
+    ).filter(filters, SALIDA_RUTA__CIUDAD_REGISTRO=ciudad_registro)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 

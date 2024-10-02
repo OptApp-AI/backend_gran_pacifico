@@ -90,7 +90,12 @@ class AjusteInventario(models.Model):
     CANTIDAD = models.FloatField(validators=[MinValueValidator(0)])
 
     TIPO_AJUSTE = models.CharField(
-        max_length=10, choices=(("FALTANTE", "FALTANTE"), ("SOBRANTE", "SOBRANTE"))
+        max_length=10,
+        choices=(
+            ("FALTANTE", "FALTANTE"),
+            ("SOBRANTE", "SOBRANTE"),
+            ("PRODUCCION", "PRODUCCION"),
+        ),
     )
     # status is pendiente until an admin changes the status to relizado
     # La cajera realiza el ajuste inventario, pero mientras el administrador no la autorice, el STATUS permanece como pendiente y la cajera no puede realizar el corte
@@ -163,7 +168,10 @@ class Cliente(models.Model):
     # Is this expensive?
     # Maybe I should add a select_related for this field?
     DIRECCION = models.OneToOneField(
-        Direccion, on_delete=models.CASCADE, blank=True, null=True
+        Direccion,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
     # El telefono SIMEPRE es un CharField!
     TELEFONO = models.CharField(max_length=200)
@@ -306,6 +314,14 @@ class Ruta(models.Model):
     # This is a valid approach for maintaining historical data, but it also means you need to ensure that REPARTIDOR_NOMBRE is updated whenever REPARTIDOR changes. This logic should be handled in the save method of your Ruta model or through Django signals.
     REPARTIDOR_NOMBRE = models.CharField(max_length=200)
 
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
+    )
+
     def save(self, *args, **kwargs):
         # Transform NAME to uppercase
         self.NOMBRE = self.NOMBRE.upper()
@@ -384,6 +400,14 @@ class SalidaRuta(models.Model):
             #  NO ES POSIBLE CANCELAR SI YA SE VENDIO ALGO (status es progreso) SOLO SE PUEDE CANCELAR UNA SALIDA RUTA CON STATUS DE PENDIENTE
             ("CANCELADO", "CANCELADO"),
         ),
+    )
+
+    CIUDAD_REGISTRO = models.CharField(
+        choices=(("LAZARO", "LAZARO"), ("URUAPAN", "URUAPAN")),
+        max_length=15,
+        default="URUAPAN",
+        blank=False,
+        db_index=True,
     )
 
     def __str__(self):

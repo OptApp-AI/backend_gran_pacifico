@@ -15,8 +15,8 @@ from django.utils.dateparse import parse_date
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import timedelta
 
-from api.views.utilis.general import obtener_ciudad_registro
-from .utilis.ventas import filter_by_date
+from api.views.utilis.general import obtener_ciudad_registro, filter_by_date
+
 from django.db.models import Q
 from django.core.cache import cache
 from django.db.models import Prefetch
@@ -53,7 +53,7 @@ def venta_list(request):
     queryset = (
         Venta.objects.select_related("CLIENTE")
         .prefetch_related(productos_venta_prefetch)
-        .filter(filters, CIUDAD_REGISTRO = ciudad_registro)
+        .filter(filters, CIUDAD_REGISTRO=ciudad_registro)
     )
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
@@ -112,7 +112,7 @@ def venta_reporte_list(request):
     fechainicio = request.GET.get("fechainicio", "")
     fechafinal = request.GET.get("fechafinal", "")
     ordenar_por = request.GET.get("ordenarpor", "")
-    
+
     ciudad_registro = obtener_ciudad_registro(request)
 
     filters = Q()
@@ -129,7 +129,7 @@ def venta_reporte_list(request):
         "TIPO_PAGO",
         "OBSERVACIONES",
         "DESCUENTO",
-    ).filter(filters, CIUDAD_REGISTRO = ciudad_registro)
+    ).filter(filters, CIUDAD_REGISTRO=ciudad_registro)
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
@@ -246,7 +246,6 @@ def modificar_venta(request, pk):
 def modificar_venta_put(request, venta):
     data = request.data.get("STATUS")
 
-    
     if data is None:
         return Response(
             {"error": "STATUS is required"}, status=status.HTTP_400_BAD_REQUEST
@@ -266,8 +265,6 @@ def modificar_venta_put(request, venta):
 
     # Obtener productos venta de la venta
     productos_venta = venta.productos_venta.all()
-
-    
 
     productos_to_update = []
 

@@ -33,17 +33,17 @@ from datetime import timedelta
 
 
 # Create a function to handle date filtering
-def filter_by_date(queryset, fechainicio, fechafinal):
-    if fechainicio:
-        fechainicio = parse_date(fechainicio)
-    if fechafinal:
-        fechafinal = parse_date(fechafinal) + timedelta(days=1)
+# def filter_by_date(queryset, fechainicio, fechafinal):
+#     if fechainicio:
+#         fechainicio = parse_date(fechainicio)
+#     if fechafinal:
+#         fechafinal = parse_date(fechafinal) + timedelta(days=1)
 
-    if fechainicio and fechafinal:
-        print(fechainicio, fechafinal)
-        return queryset.filter(FECHA__date__range=[fechainicio, fechafinal])
-    elif fechainicio:
-        return queryset.filter(FECHA__date__gte=fechainicio)
-    elif fechafinal:
-        return queryset.filter(FECHA__date__lte=fechafinal)
-    return queryset
+#     if fechainicio and fechafinal:
+#         print(fechainicio, fechafinal)
+#         return queryset.filter(FECHA__date__range=[fechainicio, fechafinal])
+#     elif fechainicio:
+#         return queryset.filter(FECHA__date__gte=fechainicio)
+#     elif fechafinal:
+#         return queryset.filter(FECHA__date__lte=fechafinal)
+#     return queryset

@@ -30,7 +30,7 @@ from django.db.models import Q
 from django.db import transaction
 from django.db.models import Prefetch
 
-from api.views.utilis.general import obtener_ciudad_registro
+from api.views.utilis.general import obtener_ciudad_registro, obtener_nombre_con_sufijo
 
 
 @api_view(["GET"])
@@ -67,7 +67,7 @@ def cliente_list(request):
     )
 
     queryset = (
-        Cliente.objects.filter(q_objects, CIUDAD_REGISTRO = ciudad_registro)
+        Cliente.objects.filter(q_objects, CIUDAD_REGISTRO=ciudad_registro)
         .select_related("DIRECCION")
         .prefetch_related("RUTAS", precios_cliente_prefetch)
     )
@@ -156,20 +156,24 @@ def cliente_venta_lista(request):
         # Use .only() to limit the fields fetched from the Cliente model.
 
         queryset = (
-            Cliente.objects.filter(NOMBRE__icontains=nombre, CIUDAD_REGISTRO = ciudad_registro)
+            Cliente.objects.filter(
+                NOMBRE__icontains=nombre, CIUDAD_REGISTRO=ciudad_registro
+            )
             .only("id", "NOMBRE")
             .order_by("NOMBRE")
             .prefetch_related(precios_cliente_prefetch)[:5]
         )
         if not queryset.exists():
             queryset = (
-                Cliente.objects.filter(NOMBRE="MOSTRADOR", CIUDAD_REGISTRO = ciudad_registro)
+                Cliente.objects.filter(
+                    NOMBRE="MOSTRADOR", CIUDAD_REGISTRO=ciudad_registro
+                )
                 .only("id", "NOMBRE")
                 .prefetch_related(precios_cliente_prefetch)
             )
     else:
         queryset = (
-            Cliente.objects.filter(NOMBRE="MOSTRADOR", CIUDAD_REGISTRO = ciudad_registro)
+            Cliente.objects.filter(NOMBRE="MOSTRADOR", CIUDAD_REGISTRO=ciudad_registro)
             .only("id", "NOMBRE")
             .prefetch_related(precios_cliente_prefetch)
         )
@@ -334,8 +338,14 @@ def modificar_cliente(request, pk):
 # Esta vista permite seleccionar las ruta dia cuando se registra un cliente
 @api_view(["GET"])
 def rutas_registrar_cliente(request):
+
+    ciudad_registro = obtener_ciudad_registro(request)
     # This is efficient because it prevents the N+1 query problem. Without select_related, each access to ruta.REPARTIDOR in your serializer would potentially trigger an additional query to fetch the Empleado object.
-    rutas = Ruta.objects.only("NOMBRE").prefetch_related("ruta_dias").all()
+    rutas = (
+        Ruta.objects.only("NOMBRE")
+        .prefetch_related("ruta_dias")
+        .filter(CIUDAD_REGISTRO=ciudad_registro)
+    )
     serializer = RutaRegistrarClienteSerializer(rutas, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -352,7 +362,14 @@ def clientes_ruta(request, pk):
 # Rutas
 @api_view(["GET"])
 def ruta_list(request):
-    rutas = Ruta.objects.select_related("REPARTIDOR").all().order_by("-id")
+
+    ciudad_registro = obtener_ciudad_registro(request)
+
+    rutas = (
+        Ruta.objects.select_related("REPARTIDOR")
+        .filter(CIUDAD_REGISTRO=ciudad_registro)
+        .order_by("-id")
+    )
 
     serializer = RutaSerializer(rutas, many=True)
 
@@ -376,19 +393,27 @@ def ruta_detail(request, pk):
 
 @api_view(["POST"])
 def crear_ruta(request):
-    serializer = RutaSerializer(data=request.data)
+
+    data = request.data.copy()
+
+    ciudad_registro = obtener_ciudad_registro(request)
+
+    data["NOMBRE"] = obtener_nombre_con_sufijo(ciudad_registro, data["NOMBRE"])
+    data["CIUDAD_REGISTRO"] = ciudad_registro
+
+    serializer = RutaSerializer(data=data)
 
     if serializer.is_valid():
         serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["PUT", "DELETE"])
 def modificar_ruta(request, pk):
-    
+
     try:
         ruta = Ruta.objects.get(id=pk)
     except Ruta.DoesNotExist:
@@ -476,10 +501,13 @@ def modificar_ruta_dia(request, pk):
 # I have to change this view. Instead of sending clients with a list of ruta_dia_ids I should send a ruta dia with a list of clientes (maybe only the cliente id or maybe the cliente and NOMBRE)
 @api_view(["GET"])
 def clientes_salida_ruta_list(request):
+
+    ciudad_registro = obtener_ciudad_registro(request)
     clientes = (
         Cliente.objects.only("NOMBRE", "id")
         .prefetch_related("RUTAS")
         .exclude(NOMBRE__in=["RUTA", "MOSTRADOR"])
+        .filter(CIUDAD_REGISTRO=ciudad_registro)
     )
 
     serializer = ClienteConRutaDiaSerializer(clientes, many=True)
@@ -490,7 +518,13 @@ def clientes_salida_ruta_list(request):
 # Esto se usa al momento de generar una salida ruta
 @api_view(["GET"])
 def ruta_salida_ruta_list(request):
-    rutas = Ruta.objects.only("NOMBRE", "id").prefetch_related("ruta_dias").all()
+
+    ciudad_registro = obtener_ciudad_registro(request)
+    rutas = (
+        Ruta.objects.only("NOMBRE", "id")
+        .prefetch_related("ruta_dias")
+        .filter(CIUDAD_REGISTRO=ciudad_registro)
+    )
 
     serializer = RutasConRutaDiaSerializer(rutas, many=True)
 
