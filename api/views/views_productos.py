@@ -19,7 +19,6 @@ def producto_list(request):
 
     ciudad_registro = obtener_ciudad_registro(request)
 
-
     queryset = Producto.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by("-id")
 
     serializer = ProductoSerializer(queryset, many=True)
@@ -32,9 +31,9 @@ def producto_list(request):
 def crear_producto(request):
     # 1. Crear producto
 
-    data=request.data.copy()
+    data = request.data.copy()
 
-    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request) 
+    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
     data["CIUDAD_REGISTRO"] = ciudad_registro
 
     serializer = ProductoSerializer(data=data)
@@ -45,7 +44,9 @@ def crear_producto(request):
 
         # Retrieving only the IDs of Cliente using .only("id") is generally efficient because it minimizes the amount of data loaded from the database. However, if you're interested solely in the IDs and not the Cliente model instances, fetching the IDs as a list using .values_list('id', flat=True) would be even more efficient. This is because .values_list() retrieves just the specified fields directly, without constructing model instances, which can save memory when dealing with a large number of objects.
         # clientes = Cliente.objects.only("id")
-        cliente_ids = Cliente.objects.filter(CIUDAD_REGISTRO = ciudad_registro).values_list("id", flat=True)
+        cliente_ids = Cliente.objects.filter(
+            CIUDAD_REGISTRO=ciudad_registro
+        ).values_list("id", flat=True)
 
         # Crear una lista de objetos PrecioCliente para insertar en lote
         precios_clientes_instances = [
@@ -117,6 +118,6 @@ def modificar_producto(request, pk):
 
 def actualizar_producto_precio(precio, producto_id):
     # Update price for all clients in the database
-    # Correction, update price for clients from the same CIUDAD_REGISTRO than product 
-    # I don't need to modify the code because this product_id only exist for clients from that CIUDAD_REGISTRO 
+    # Correction, update price for clients from the same CIUDAD_REGISTRO than product
+    # I don't need to modify the code because this product_id only exist for clients from that CIUDAD_REGISTRO
     PrecioCliente.objects.filter(PRODUCTO__id=producto_id).update(PRECIO=precio)

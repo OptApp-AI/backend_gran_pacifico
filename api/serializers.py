@@ -383,11 +383,17 @@ class SalidaRutaSerializerSinClientes(serializers.ModelSerializer):
         }
 
 
-# LIGERO
+# LIGERO (Se usa en la lista de salida ruta)
 class ProductoSalidaRutaSerializerLigero(serializers.ModelSerializer):
     class Meta:
         model = ProductoSalidaRuta
-        fields = ("PRODUCTO_NOMBRE", "CANTIDAD_RUTA", "CANTIDAD_DISPONIBLE", "STATUS")
+        fields = (
+            # "id",
+            "PRODUCTO_NOMBRE",
+            "CANTIDAD_RUTA",
+            "CANTIDAD_DISPONIBLE",
+            "STATUS",
+        )
 
 
 class ClienteSalidaRutaSerializerLigero(serializers.ModelSerializer):
@@ -413,3 +419,83 @@ class DevolucionSalidaRutaSerializer(serializers.ModelSerializer):
     class Meta:
         model = DevolucionSalidaRuta
         fields = "__all__"
+
+
+# Resumen
+class ProductoSalidaRutaSerializerResumen(serializers.ModelSerializer):
+    class Meta:
+        model = ProductoSalidaRuta
+        fields = (
+            "id",
+            "PRODUCTO_NOMBRE",
+            "PRODUCTO_RUTA",
+            "CANTIDAD_RUTA",
+            "CANTIDAD_DISPONIBLE",
+            "STATUS",
+        )
+
+
+class ClienteSalidaRutaSerializerResumen(serializers.ModelSerializer):
+    # Accedemos a los atributos especificos de un hermano mediante un metodo
+
+    class Meta:
+        model = ClienteSalidaRuta
+        fields = ("id", "CLIENTE_NOMBRE", "STATUS")
+
+
+class SalidaRutaSerializerResumen(serializers.ModelSerializer):
+    # Para esto si podria valer la pena usar prefetch_related
+    productos = ProductoSalidaRutaSerializerResumen(many=True, read_only=True)
+
+    clientes = ClienteSalidaRutaSerializerResumen(many=True, read_only=True)
+
+    class Meta:
+        model = SalidaRuta
+        fields = (
+            "id",
+            "STATUS",
+            "REPARTIDOR_NOMBRE",
+            "ATIENDE",
+            "productos",
+            "clientes",
+        )
+
+
+# Salida Ruta acciones
+
+
+class ProductoSalidaRutaSerializerAcciones(serializers.ModelSerializer):
+    class Meta:
+        model = ProductoSalidaRuta
+        fields = (
+            "id",
+            "PRODUCTO_NOMBRE",
+            "PRODUCTO_RUTA",
+            # "CANTIDAD_RUTA",
+            "CANTIDAD_DISPONIBLE",
+            "STATUS",
+        )
+
+
+class SalidaRutaSerializerAcciones(serializers.ModelSerializer):
+    # Para esto si podria valer la pena usar prefetch_related
+    productos = ProductoSalidaRutaSerializerAcciones(many=True, read_only=True)
+
+    class Meta:
+        model = SalidaRuta
+        # fields = "__all__"
+        fields = ("id", "STATUS", "productos")
+
+
+class SalidaRutaReporteSerializer(BaseVentaSerializer):
+    class Meta:
+
+        model = SalidaRuta
+        fields = [
+            "id",
+            "ATIENDE",
+            "FECHA",
+            "REPARTIDOR_NOMBRE",
+            "OBSERVACIONES",
+            "STATUS",
+        ]

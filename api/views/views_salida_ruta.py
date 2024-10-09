@@ -18,7 +18,10 @@ from api.models import (
 from api.serializers import (
     DevolucionSalidaRutaSerializer,
     ProductoSalidaRutaSerializer,
+    SalidaRutaReporteSerializer,
     SalidaRutaSerializer,
+    SalidaRutaSerializerAcciones,
+    SalidaRutaSerializerResumen,
     SalidaRutaSerializerSinClientes,
     VentaSerializer,
     SalidaRutaSerializerLigero,
@@ -99,7 +102,71 @@ def salida_ruta_list(request):
 
 
 @api_view(["GET"])
+def salida_ruta_reporte_list(request):
+    filtrar_por = request.GET.get("filtrarpor", "")
+    buscar = request.GET.get("buscar", "")
+    fechainicio = request.GET.get("fechainicio", "")
+    fechafinal = request.GET.get("fechafinal", "")
+    ordenar_por = request.GET.get("ordenarpor", "")
+    role = request.GET.get("role", "")
+
+    ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
+
+    filters = Q()
+    if filtrar_por and buscar:
+        filters = Q(**{f"{filtrar_por.upper()}__icontains": buscar})
+
+    queryset = SalidaRuta.objects.only(
+        "id",
+        "ATIENDE",
+        "FECHA",
+        "REPARTIDOR_NOMBRE",
+        "OBSERVACIONES",
+        "STATUS",
+    ).filter(filters, CIUDAD_REGISTRO=ciudad_registro)
+
+    queryset = filter_by_date(queryset, fechainicio, fechafinal)
+
+    # Chech if the user is a delivery man
+    if role == "REPARTIDOR":
+        queryset = queryset.filter(REPARTIDOR__USUARIO__username=request.user.username)
+
+    ordering_dict = {
+        "atiende": "ATIENDE",
+        "repartidor": "REPARTIDOR_NOMBRE",
+        "fecha_recientes": "-FECHA",
+        "fecha_antiguos": "FECHA",
+    }
+    queryset = queryset.order_by(ordering_dict.get(ordenar_por, "-id"))
+
+    serializer = SalidaRutaReporteSerializer(queryset, many=True)
+
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
 def salida_ruta_detail(request, pk):
+    try:
+        productos_salida_ruta_prefetch = Prefetch(
+            "productos",
+            queryset=ProductoSalidaRuta.objects.select_related("PRODUCTO_RUTA"),
+        )
+
+        salida_ruta = (
+            SalidaRuta.objects.select_related("RUTA", "REPARTIDOR")
+            .prefetch_related(productos_salida_ruta_prefetch)
+            .get(pk=pk)
+        )
+    except SalidaRuta.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    serializer = SalidaRutaSerializerAcciones(salida_ruta)
+
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def salida_ruta_venta(request, pk):
     try:
         productos_salida_ruta_prefetch = Prefetch(
             "productos",
@@ -121,6 +188,33 @@ def salida_ruta_detail(request, pk):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     serializer = SalidaRutaSerializer(salida_ruta)
+
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def salida_ruta_resumen(request, pk):
+    try:
+        productos_salida_ruta_prefetch = Prefetch(
+            "productos",
+            queryset=ProductoSalidaRuta.objects.select_related("PRODUCTO_RUTA"),
+        )
+
+        clientes_salida_ruta_prefetch = Prefetch(
+            "clientes",
+            queryset=ClienteSalidaRuta.objects.select_related("CLIENTE_RUTA"),
+        )
+        salida_ruta = (
+            SalidaRuta.objects.select_related("RUTA", "REPARTIDOR")
+            .prefetch_related(
+                productos_salida_ruta_prefetch, clientes_salida_ruta_prefetch
+            )
+            .get(pk=pk)
+        )
+    except SalidaRuta.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    serializer = SalidaRutaSerializerResumen(salida_ruta)
 
     return Response(serializer.data)
 
@@ -424,16 +518,6 @@ def devolver_producto_salida_ruta(request, pk):
 def realizar_aviso_visita(request, pk):
     salida_ruta = SalidaRuta.objects.get(id=pk)
 
-    # try:
-    #     assert salida_ruta.STATUS == "PROGRESO"
-    # except AssertionError:
-    #     return Response(
-    #         {
-    #             "message": "El STATUS de salida ruta debe ser PROGRESO para poder realizar un aviso de visita"
-    #         },
-    #         status=status.HTTP_400_BAD_REQUEST,
-    #     )
-
     data = request.data
 
     try:
@@ -565,8 +649,6 @@ def devolucion_detalles(request, pk):
 def realizar_recarga_salida_ruta(request, pk):
     data = request.data
 
-    print("DATA", data)
-
     producto_id = data.get("PRODUCTO_RUTA")
     cantidad = data.get("CANTIDAD_RECARGA", 0)
 
@@ -620,7 +702,7 @@ def realizar_recarga_salida_ruta(request, pk):
                 {"message": "Salida ruta creada exitosamente"},
                 status=status.HTTP_200_OK,
             )
-        print(serializer.errors)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(
