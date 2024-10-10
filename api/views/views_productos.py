@@ -83,6 +83,7 @@ def producto_detail(request, pk):
 
 
 @api_view(["PUT", "DELETE"])
+@transaction.atomic
 def modificar_producto(request, pk):
     try:
         producto = Producto.objects.get(pk=pk)

@@ -102,7 +102,7 @@ def crear_ajuste_inventario(request):
         if tipo_ajuste == "FALTANTE":
             producto.CANTIDAD -= cantidad
 
-        elif tipo_ajuste == "SOBRANTE":
+        elif tipo_ajuste in ["SOBRANTE", "PRODUCCION"]:
             producto.CANTIDAD += cantidad
 
         producto.save()
