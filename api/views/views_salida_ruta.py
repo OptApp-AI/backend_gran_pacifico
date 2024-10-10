@@ -391,7 +391,11 @@ def crear_salida_ruta(request):
 @api_view(["POST"])
 @transaction.atomic
 def crear_venta_salida_ruta(request, pk):
-    data = request.data
+    data = request.data.copy()
+
+    ciudad_registro = obtener_ciudad_registro(request)
+
+    data["CIUDAD_REGISTRO"] = ciudad_registro
 
     # 1. Valida data for creating venta
     serializer = VentaSerializer(data=data)
