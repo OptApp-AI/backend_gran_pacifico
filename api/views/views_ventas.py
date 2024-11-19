@@ -164,6 +164,17 @@ def crear_venta(request):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
+    
+    # Obtener solo el valor del último folio
+    ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
+
+    print("ULTIMO FOLIO", ultimo_folio)
+    
+    if ultimo_folio is not None:
+        data["FOLIO"] = ultimo_folio+1
+        print(data)
+    else:
+        raise ValueError("Un valor de folio para la venta anteriror se requiere")
 
     # Aqui la data va a cambiar para ventas en salida ruta, en especifico tipo_venta es ruta
     serializer = VentaSerializer(data=data)
@@ -198,6 +209,7 @@ def crear_venta(request):
         Producto.objects.bulk_update(producto_instances, ["CANTIDAD"])
         ProductoVenta.objects.bulk_create(producto_venta_instances)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

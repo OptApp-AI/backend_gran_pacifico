@@ -366,6 +366,7 @@ def crear_salida_ruta(request):
             for cliente in cliente_instances
         ]
 
+        # Esto puede causar un problema, si hay más de un cliente con nombre salida ruta
         try:
             cliente_ruta = Cliente.objects.get(NOMBRE="RUTA")
 

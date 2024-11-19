@@ -13,9 +13,15 @@ def obtener_ciudad_registro(request):
     # decoded_token = JWTAuthentication().get_validated_token(token)
     # user_id = decoded_token["user_id"]  # o 'user' si usas otro campo
 
-    empleado = Empleado.objects.get(USUARIO=request.user)
+    try:
+        print("USER", request.user)
+        empleado = Empleado.objects.get(USUARIO=request.user)
 
-    ciudad_registro = empleado.CIUDAD_REGISTRO
+        ciudad_registro = empleado.CIUDAD_REGISTRO
+    except:
+
+        print("BEOOOO", request)
+        ciudad_registro = "URUAPAN"
 
     return ciudad_registro
 
