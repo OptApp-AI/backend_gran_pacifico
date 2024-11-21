@@ -121,6 +121,7 @@ def venta_reporte_list(request):
 
     queryset = Venta.objects.only(
         "id",
+        "FOLIO",
         "VENDEDOR",
         "NOMBRE_CLIENTE",
         "FECHA",

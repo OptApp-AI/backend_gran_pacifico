@@ -243,7 +243,8 @@ class VentaSerializer(BaseVentaSerializer):
 class VentaReporteSerializer(BaseVentaSerializer):
     class Meta(BaseVentaSerializer.Meta):
         fields = [
-            "id",
+            # "id",
+            "FOLIO",
             "VENDEDOR",
             "NOMBRE_CLIENTE",
             "FECHA",
