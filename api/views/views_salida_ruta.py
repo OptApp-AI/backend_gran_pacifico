@@ -33,6 +33,7 @@ from django.db.models import Case, When, Value, IntegerField
 
 from api.views.utilis.general import obtener_ciudad_registro, filter_by_date
 
+from datetime import datetime
 
 @api_view(["GET"])
 def salida_ruta_list(request):
@@ -396,6 +397,9 @@ def crear_venta_salida_ruta(request, pk):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
+
+    if "FECHA" not in data:
+        data["FECHA"] = None
 
     # 1. Valida data for creating venta
     serializer = VentaSerializer(data=data)
