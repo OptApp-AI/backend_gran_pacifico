@@ -21,3 +21,4 @@ log/
 
 # Ignorar archivos de media
 static/
+media/

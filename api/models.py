@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils.timezone import now
 
 
 class Empleado(models.Model):
@@ -244,7 +245,7 @@ class Venta(models.Model):
 
     NOMBRE_CLIENTE = models.CharField(max_length=200, db_index=True)
 
-    FECHA = models.DateTimeField(auto_now=True)
+    FECHA = models.DateTimeField(default=now)
 
     MONTO = models.FloatField(validators=[MinValueValidator(0)])
 
