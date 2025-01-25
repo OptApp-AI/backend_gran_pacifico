@@ -5,6 +5,7 @@ from django.db import transaction  # Import the transaction module
 from django.db.models import Prefetch
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.utils import timezone
 
 from api.models import (
     ProductoVenta,
@@ -400,7 +401,7 @@ def crear_venta_salida_ruta(request, pk):
     data["CIUDAD_REGISTRO"] = ciudad_registro
 
     if "FECHA" not in data:
-        data["FECHA"] = None
+        data["FECHA"] = timezone.now()
 
     # 1. Valida data for creating venta
     serializer = VentaSerializer(data=data)

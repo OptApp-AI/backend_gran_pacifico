@@ -245,7 +245,7 @@ class Venta(models.Model):
 
     NOMBRE_CLIENTE = models.CharField(max_length=200, db_index=True)
 
-    FECHA = models.DateTimeField(default=now)
+    FECHA = models.DateTimeField(null=True, blank=True)
 
     MONTO = models.FloatField(validators=[MinValueValidator(0)])
 
