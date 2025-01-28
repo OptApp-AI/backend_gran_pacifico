@@ -472,9 +472,10 @@ class ProductoSalidaRutaSerializerAcciones(serializers.ModelSerializer):
             "id",
             "PRODUCTO_NOMBRE",
             "PRODUCTO_RUTA",
-            # "CANTIDAD_RUTA",
+            "CANTIDAD_RUTA",
             "CANTIDAD_DISPONIBLE",
             "STATUS",
+            "CANTIDAD RECARGA"
         )
 
 
@@ -485,7 +486,11 @@ class SalidaRutaSerializerAcciones(serializers.ModelSerializer):
     class Meta:
         model = SalidaRuta
         # fields = "__all__"
-        fields = ("id", "STATUS", "productos")
+        fields = ("id", "STATUS", "productos", 
+            # Hicimos cambios de prueba para arreglar ticket recarga
+            "REPARTIDOR_NOMBRE",
+            "ATIENDE",          
+        )
 
 
 class SalidaRutaReporteSerializer(BaseVentaSerializer):
