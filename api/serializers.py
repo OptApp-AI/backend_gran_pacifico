@@ -475,7 +475,7 @@ class ProductoSalidaRutaSerializerAcciones(serializers.ModelSerializer):
             "CANTIDAD_RUTA",
             "CANTIDAD_DISPONIBLE",
             "STATUS",
-            "CANTIDAD RECARGA"
+            # "CANTIDAD RECARGA"
         )
 
 

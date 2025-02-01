@@ -45,7 +45,7 @@ def salida_ruta_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
     role = request.GET.get("role", "")
-    data = request.data.copy()
+
 
     ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
 
@@ -169,7 +169,15 @@ def salida_ruta_detail(request, pk):
 
 @api_view(["GET"])
 def salida_ruta_venta(request, pk):
+
+    # salida_ruta = SalidaRuta.objects.only("STATUS").get(pk=pk)
+
+    # if salida_ruta.STATUS in ["REALIZADO", "CANCELADO"]:
+ 
+    #     return Response({"Mensaje": f"Salida Ruta con STATUS {salida_ruta.STATUS} no puede realizar ventas"},status=status.HTTP_200_OK)
+    
     try:
+
         productos_salida_ruta_prefetch = Prefetch(
             "productos",
             queryset=ProductoSalidaRuta.objects.select_related("PRODUCTO_RUTA"),

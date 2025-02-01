@@ -1,5 +1,6 @@
-from api.models import ClienteSalidaRuta, ProductoSalidaRuta, SalidaRuta
+from api.models import ClienteSalidaRuta, ProductoSalidaRuta, SalidaRuta,  Empleado
 
+from django.core.exceptions import ObjectDoesNotExist
 
 # Obtener todos los  productos de la salida ruta
 
@@ -28,22 +29,23 @@ def verificar_salida_ruta_completada(salida_ruta):
     salida_ruta.save()
 
 
-from django.utils.dateparse import parse_date
-from datetime import timedelta
 
 
-# Create a function to handle date filtering
-# def filter_by_date(queryset, fechainicio, fechafinal):
-#     if fechainicio:
-#         fechainicio = parse_date(fechainicio)
-#     if fechafinal:
-#         fechafinal = parse_date(fechafinal) + timedelta(days=1)
 
-#     if fechainicio and fechafinal:
-#         print(fechainicio, fechafinal)
-#         return queryset.filter(FECHA__date__range=[fechainicio, fechafinal])
-#     elif fechainicio:
-#         return queryset.filter(FECHA__date__gte=fechainicio)
-#     elif fechafinal:
-#         return queryset.filter(FECHA__date__lte=fechafinal)
-#     return queryset
+def getLastSalidaRutaIdValido(username):
+    # Obtener el empleado relacionado al usuario
+    try:
+        empleado = Empleado.objects.get(USUARIO__username=username)
+    except ObjectDoesNotExist:
+        return 0  # Si el usuario no existe, devolvemos 0
+    
+    # Obtener solo el ID de la última SalidaRuta válida
+    salida_ids = SalidaRuta.objects.filter(
+        REPARTIDOR=empleado, STATUS__in=["PENDIENTE", "PROGRESO"]
+    ).order_by("-FECHA").values_list("id", flat=True)
+
+    print(salida_ids)
+
+    # Si no hay ninguna o hay más de una, devolvemos 0
+    # return salida_ids[0] if len(salida_ids) == 1 else 0
+    return salida_ids[0]  if len(salida_ids) > 0 else 0
