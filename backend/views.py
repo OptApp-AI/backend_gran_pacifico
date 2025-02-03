@@ -17,12 +17,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         request = self.context.get("request")  # Obtiene el request desde el contexto
         origin = request.META.get("HTTP_ORIGIN", "") if request else ""
 
-        if origin == "http://localhost:3000":
-            username = attrs['username']
+        # if origin == "http://localhost:3000":
+        username = attrs['username']
 
-            salidaRutaId = getLastSalidaRutaIdValido(username)
+        salidaRutaId = getLastSalidaRutaIdValido(username)
 
-            data["salida_ruta_id"] = salidaRutaId
+        data["salida_ruta_id"] = salidaRutaId
 
 
         serializer = UserSerializer(self.user).data
