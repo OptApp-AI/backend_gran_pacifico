@@ -169,12 +169,6 @@ def salida_ruta_detail(request, pk):
 
 @api_view(["GET"])
 def salida_ruta_venta(request, pk):
-
-    # salida_ruta = SalidaRuta.objects.only("STATUS").get(pk=pk)
-
-    # if salida_ruta.STATUS in ["REALIZADO", "CANCELADO"]:
- 
-    #     return Response({"Mensaje": f"Salida Ruta con STATUS {salida_ruta.STATUS} no puede realizar ventas"},status=status.HTTP_200_OK)
     
     try:
 
@@ -354,16 +348,6 @@ def crear_salida_ruta(request):
             for cliente in cliente_instances_dict.values()
         ]
 
-        # clientes_to_create = []
-        # for cliente in cliente_instances:
-        #     nuevo_cliente_salida_ruta = ClienteSalidaRuta(
-        #         SALIDA_RUTA=salida_ruta,
-        #         CLIENTE_RUTA_id=cliente.id,
-        #         CLIENTE_NOMBRE=cliente.NOMBRE,
-        #         STATUS="PENDIENTE",
-        #     )
-
-        #     clientes_to_create.append(nuevo_cliente_salida_ruta)
 
         # Crear una lista de objetos ClienteSalidaRuta
         clientes_to_create = [
@@ -378,7 +362,7 @@ def crear_salida_ruta(request):
 
         # Esto puede causar un problema, si hay más de un cliente con nombre salida ruta
         try:
-            cliente_ruta = Cliente.objects.get(NOMBRE="RUTA")
+            cliente_ruta = Cliente.objects.get(NOMBRE="RUTA", CIUDAD_REGISTRO=ciudad_registro)
 
             nuevo_cliente_salida_ruta = ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,

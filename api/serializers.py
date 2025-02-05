@@ -323,10 +323,16 @@ class ProductoSalidaRutaSerializer(serializers.ModelSerializer):
         model = ProductoSalidaRuta
         fields = "__all__"
 
+class DireccionSalidaRutaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Direccion
+        fields = ['CALLE', 'NUMERO', 'COLONIA', 'CIUDAD', 'MUNICIPIO', 'CP']
 
 class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
     # Accedemos a los atributos especificos de un hermano mediante un metodo
     precios_cliente = serializers.SerializerMethodField()
+    direccion = DireccionSalidaRutaSerializer(source='CLIENTE_RUTA.DIRECCION', read_only=True)
+    telefono = serializers.CharField(source='CLIENTE_RUTA.TELEFONO', read_only=True)
 
     class Meta:
         model = ClienteSalidaRuta
