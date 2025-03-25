@@ -312,7 +312,7 @@ class ProductoVenta(models.Model):
 
     CANTIDAD_VENTA = models.FloatField(validators=[MinValueValidator(0)])
     # quiza no requiero precio venta en el frontend?
-    PRECIO_VENTA = models.IntegerField(validators=[MinValueValidator(0)])
+    PRECIO_VENTA = models.FloatField(validators=[MinValueValidator(0)])
 
     def __str__(self):
         return f"{self.VENTA}, {self.NOMBRE_PRODUCTO}"
