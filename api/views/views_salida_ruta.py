@@ -8,6 +8,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.utils import timezone
 
 from api.models import (
+    Venta,
     ProductoVenta,
     SalidaRuta,
     ProductoSalidaRuta,
@@ -391,6 +392,17 @@ def crear_venta_salida_ruta(request, pk):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
+
+    # Obtener solo el valor del último folio
+    ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
+
+    print("ULTIMO FOLIO", ultimo_folio)
+    
+    if ultimo_folio is not None:
+        data["FOLIO"] = ultimo_folio+1
+        print(data)
+    else:
+        raise ValueError("Un valor de folio para la venta anteriror se requiere")
 
     if "FECHA" not in data:
         data["FECHA"] = timezone.now()
