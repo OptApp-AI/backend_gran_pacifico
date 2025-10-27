@@ -212,7 +212,7 @@ class ClienteVentaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cliente
 
-        fields = ("id", "precios_cliente", "NOMBRE", "CIUDAD_REGISTRO")
+        fields = ("id", "precios_cliente", "NOMBRE", "CIUDAD_REGISTRO", "TIPO_PAGO" )
 
 
 # Venta
@@ -333,6 +333,7 @@ class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
     precios_cliente = serializers.SerializerMethodField()
     direccion = DireccionSalidaRutaSerializer(source='CLIENTE_RUTA.DIRECCION', read_only=True)
     telefono = serializers.CharField(source='CLIENTE_RUTA.TELEFONO', read_only=True)
+    TIPO_PAGO = serializers.SerializerMethodField()
 
     class Meta:
         model = ClienteSalidaRuta
@@ -357,6 +358,11 @@ class ClienteSalidaRutaSerializer(serializers.ModelSerializer):
                 }
             )
         return precios_cliente
+
+    def get_TIPO_PAGO(self, obj):
+        tipo_pago = Cliente.objects.get(id=obj.CLIENTE_RUTA.id).TIPO_PAGO
+
+        return tipo_pago
 
 
 # I should use prefetch related for clients and products
