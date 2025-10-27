@@ -2,6 +2,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from api.models import (
+    Cliente,
     Producto,
     Venta,
     ProductoVenta,
@@ -167,6 +168,10 @@ def crear_venta(request):
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
     
+    client = Cliente.objects.get(pk=data['CLIENTE'])
+    if data['TIPO_PAGO'] == 'CREDITO' and client.TIPO_PAGO != 'CREDITO':
+        raise ValueError("No puede utilizarse crédito en un usuario no habilitado para usarlo")
+
     if 'FECHA' not in data:
         data['FECHA'] = timezone.now()
 
