@@ -2,6 +2,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from api.models import (
+    Cliente,
     Producto,
     Venta,
     ProductoVenta,
@@ -21,6 +22,7 @@ from django.db.models import Q
 from django.core.cache import cache
 from django.db.models import Prefetch
 from django.db import transaction
+from django.utils import timezone
 
 # Vistas para ventas
 
@@ -166,6 +168,13 @@ def crear_venta(request):
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
     
+    client = Cliente.objects.get(pk=data['CLIENTE'])
+    if data['TIPO_PAGO'] == 'CREDITO' and client.TIPO_PAGO != 'CREDITO':
+        raise ValueError("No puede utilizarse crédito en un usuario no habilitado para usarlo")
+
+    if 'FECHA' not in data:
+        data['FECHA'] = timezone.now()
+
     # Obtener solo el valor del último folio
     ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
 
@@ -310,6 +319,8 @@ def modificar_venta_put(request, venta):
     Producto.objects.bulk_update(productos_to_update, ["CANTIDAD"])
 
     venta.STATUS = data
+    if data == 'CANCELADO':
+        venta.MONTO = 0
     venta.save()
 
     reporte_cambios["STATUS"] = status_cambios

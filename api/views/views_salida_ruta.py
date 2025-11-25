@@ -392,6 +392,13 @@ def crear_venta_salida_ruta(request, pk):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
+    
+    client = Cliente.objects.get(pk=data['CLIENTE'])
+    if data['TIPO_PAGO'] == 'CREDITO' and client.TIPO_PAGO != 'CREDITO':
+        raise ValueError("No puede utilizarse crédito en un usuario no habilitado para usarlo")
+
+    if 'FECHA' not in data:
+        data['FECHA'] = timezone.now()
 
     # Obtener solo el valor del último folio
     ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
