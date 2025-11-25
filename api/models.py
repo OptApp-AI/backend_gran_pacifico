@@ -235,7 +235,8 @@ class PrecioCliente(models.Model):
 
 # Esta tabla se usa para registrar tanto ventas a mostrador como ventas en salida ruta
 
-# Vamos a hacer la prueba de concepto con la tabla de ventas, luego lo hacemos con lo demas 
+
+# Vamos a hacer la prueba de concepto con la tabla de ventas, luego lo hacemos con lo demas
 class Venta(models.Model):
     VENDEDOR = models.CharField(max_length=100)
     # Para ventas a mostrador existe el cliente mostrador que siempre tiene los precios generales de cada producto sin ningun descuento.
@@ -285,17 +286,15 @@ class Venta(models.Model):
         blank=False,
         db_index=True,
     )
-    
-    FOLIO = models.PositiveIntegerField(null=True, blank=True)
-    
+
+    FOLIO = models.CharField(max_length=20, null=True, blank=True)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['FOLIO', 'CIUDAD_REGISTRO'],
-                name='unique_folio_ciudad'
+                fields=["FOLIO", "CIUDAD_REGISTRO"], name="unique_folio_ciudad"
             )
-        ] 
-
+        ]
 
     def __str__(self):
         return f"{self.TIPO_VENTA}, {self.MONTO}, {self.TIPO_PAGO}"
@@ -423,6 +422,18 @@ class SalidaRuta(models.Model):
         blank=False,
         db_index=True,
     )
+
+    FOLIO = models.IntegerField(
+        null=True, blank=True, validators=[MinValueValidator(0)]
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["FOLIO", "CIUDAD_REGISTRO"],
+                name="unique_folio_ciudad_salida_ruta",
+            )
+        ]
 
     def __str__(self):
         return f"{self.ATIENDE}, {self.REPARTIDOR_NOMBRE}"

@@ -21,6 +21,7 @@ from django.db.models import Q
 from django.core.cache import cache
 from django.db.models import Prefetch
 from django.db import transaction
+from django.utils import timezone
 
 # Vistas para ventas
 
@@ -41,7 +42,7 @@ def venta_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
     ciudad_registro = obtener_ciudad_registro(request)
-
+    role = request.GET.get("role", "")
     # One of the reasons I added NOMBRE_CLIENTE is to use this field as filtering
     filters = Q()
     if filtrar_por and buscar:
@@ -58,6 +59,8 @@ def venta_list(request):
 
     queryset = filter_by_date(queryset, fechainicio, fechafinal)
 
+    if role == "CAJERO":
+        queryset = queryset.filter(TIPO_VENTA="MOSTRADOR")
     ordering_dict = {
         "cliente": "NOMBRE_CLIENTE",
         "fecha_recientes": "-FECHA",
@@ -165,17 +168,30 @@ def crear_venta(request):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
-    
-    # Obtener solo el valor del último folio
-    ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
 
-    print("ULTIMO FOLIO", ultimo_folio)
-    
-    if ultimo_folio is not None:
-        data["FOLIO"] = ultimo_folio+1
-        print(data)
-    else:
-        raise ValueError("Un valor de folio para la venta anteriror se requiere")
+    # Asignar folio con prefijo por TIPO_VENTA y secuencia independiente por ciudad
+    tipo_venta = data.get("TIPO_VENTA")
+    prefijo = "M-" if tipo_venta == "MOSTRADOR" else "R-"
+    ultimo_folio = (
+        Venta.objects.filter(
+            CIUDAD_REGISTRO=ciudad_registro,
+            TIPO_VENTA=tipo_venta,
+            FOLIO__startswith=prefijo,
+        )
+        .order_by("-id")
+        .values_list("FOLIO", flat=True)
+        .first()
+    )
+    try:
+        siguiente_num = (
+            int(str(ultimo_folio).split("-", 1)[1]) + 1 if ultimo_folio else 1
+        )
+    except Exception:
+        siguiente_num = 1
+    data["FOLIO"] = f"{prefijo}{siguiente_num}"
+
+    if "FECHA" not in data:
+        data["FECHA"] = timezone.now()
 
     # Aqui la data va a cambiar para ventas en salida ruta, en especifico tipo_venta es ruta
     serializer = VentaSerializer(data=data)

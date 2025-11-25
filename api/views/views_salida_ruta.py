@@ -37,6 +37,7 @@ from api.views.utilis.general import obtener_ciudad_registro, filter_by_date
 
 from datetime import datetime
 
+
 @api_view(["GET"])
 def salida_ruta_list(request):
     filtrar_por = request.GET.get("filtrarpor", "")
@@ -46,7 +47,6 @@ def salida_ruta_list(request):
     ordenar_por = request.GET.get("ordenarpor", "")
     page = request.GET.get("page", "")
     role = request.GET.get("role", "")
-
 
     ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
 
@@ -170,7 +170,7 @@ def salida_ruta_detail(request, pk):
 
 @api_view(["GET"])
 def salida_ruta_venta(request, pk):
-    
+
     try:
 
         productos_salida_ruta_prefetch = Prefetch(
@@ -289,6 +289,21 @@ def crear_salida_ruta(request):
     ciudad_registro = ciudad_registro = obtener_ciudad_registro(request)
     data["CIUDAD_REGISTRO"] = ciudad_registro
 
+    ultimo_folio = (
+        SalidaRuta.objects.filter(
+            CIUDAD_REGISTRO=ciudad_registro,
+        )
+        .order_by("-id")
+        .values_list("FOLIO", flat=True)
+        .first()
+    )
+
+    print("ULTIMO FOLIO", ultimo_folio)
+    if ultimo_folio is not None:
+        data["FOLIO"] = ultimo_folio + 1
+    else:
+        data["FOLIO"] = 1
+
     serializer = SalidaRutaSerializerSinClientes(data=data)
 
     if serializer.is_valid():
@@ -349,7 +364,6 @@ def crear_salida_ruta(request):
             for cliente in cliente_instances_dict.values()
         ]
 
-
         # Crear una lista de objetos ClienteSalidaRuta
         clientes_to_create = [
             ClienteSalidaRuta(
@@ -363,7 +377,9 @@ def crear_salida_ruta(request):
 
         # Esto puede causar un problema, si hay más de un cliente con nombre salida ruta
         try:
-            cliente_ruta = Cliente.objects.get(NOMBRE="RUTA", CIUDAD_REGISTRO=ciudad_registro)
+            cliente_ruta = Cliente.objects.get(
+                NOMBRE="RUTA", CIUDAD_REGISTRO=ciudad_registro
+            )
 
             nuevo_cliente_salida_ruta = ClienteSalidaRuta(
                 SALIDA_RUTA=salida_ruta,
@@ -393,16 +409,26 @@ def crear_venta_salida_ruta(request, pk):
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
 
-    # Obtener solo el valor del último folio
-    ultimo_folio = Venta.objects.filter(CIUDAD_REGISTRO=ciudad_registro).order_by('-FOLIO').values_list('FOLIO', flat=True).first()
-
-    print("ULTIMO FOLIO", ultimo_folio)
-    
-    if ultimo_folio is not None:
-        data["FOLIO"] = ultimo_folio+1
-        print(data)
-    else:
-        raise ValueError("Un valor de folio para la venta anteriror se requiere")
+    # Asignar folio con prefijo por TIPO_VENTA y secuencia independiente por ciudad
+    tipo_venta = data.get("TIPO_VENTA")
+    prefijo = "M-" if tipo_venta == "MOSTRADOR" else "R-"
+    ultimo_folio = (
+        Venta.objects.filter(
+            CIUDAD_REGISTRO=ciudad_registro,
+            TIPO_VENTA=tipo_venta,
+            FOLIO__startswith=prefijo,
+        )
+        .order_by("-id")
+        .values_list("FOLIO", flat=True)
+        .first()
+    )
+    try:
+        siguiente_num = (
+            int(str(ultimo_folio).split("-", 1)[1]) + 1 if ultimo_folio else 1
+        )
+    except Exception:
+        siguiente_num = 1
+    data["FOLIO"] = f"{prefijo}{siguiente_num}"
 
     if "FECHA" not in data:
         data["FECHA"] = timezone.now()
