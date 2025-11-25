@@ -408,6 +408,13 @@ def crear_venta_salida_ruta(request, pk):
     ciudad_registro = obtener_ciudad_registro(request)
 
     data["CIUDAD_REGISTRO"] = ciudad_registro
+    
+    client = Cliente.objects.get(pk=data['CLIENTE'])
+    if data['TIPO_PAGO'] == 'CREDITO' and client.TIPO_PAGO != 'CREDITO':
+        raise ValueError("No puede utilizarse crédito en un usuario no habilitado para usarlo")
+
+    if 'FECHA' not in data:
+        data['FECHA'] = timezone.now()
 
     # Asignar folio con prefijo por TIPO_VENTA y secuencia independiente por ciudad
     tipo_venta = data.get("TIPO_VENTA")
